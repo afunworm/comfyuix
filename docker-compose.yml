@@ -6,23 +6,21 @@ networks:
     external: true
 
 services:
+  # Port 8888
   comfyuix_server:
     build: ./server
     networks:
       - dokploy-network
-    ports:
-      - "8888:8888"
     env_file: .env
     volumes:
       - comfyuix:/app/data
     restart: unless-stopped
 
+  # Port 80
   comfyuix:
     build: ./client
     networks:
       - dokploy-network
-    ports:
-      - "80:80"
     env_file: .env
     depends_on:
       - comfyuix_server
