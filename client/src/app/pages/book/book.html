@@ -2189,7 +2189,7 @@
 					<circle cx="12" cy="20" r="1" fill="currentColor" />
 				</svg>
 				<span class="statusbar__connect-label">{{
-					isConnectedToServer() ? "Connected" : "Disconnected"
+					serverIdResolved() && !serverId() ? "No Server Set" : isConnectedToServer() ? "Connected" : "Disconnected"
 				}}</span>
 			</div>
 			@if (bookInfoVisible()) {

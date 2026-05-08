@@ -113,6 +113,7 @@ export class Book implements AfterViewInit {
 	@Input("bookId") bookId!: string;
 
 	serverId = signal<string | null>(null);
+	serverIdResolved = signal<boolean>(false);
 	loraFiles = signal<FsEntry[]>([]);
 	loraInfoEntry = signal<{ entry: FsEntry; fullPath: string } | null>(null);
 	/** Tracks user lora selections separately; empty string = None (no override). */
@@ -702,6 +703,7 @@ export class Book implements AfterViewInit {
 		// Fetch server ID and load LoRA files
 		this.db.getBookServerId(this.bookId).subscribe({
 			next: (id) => {
+				this.serverIdResolved.set(true);
 				if (!id) return;
 				this.serverId.set(id);
 				this.db.listFiles(id, 'loras', true).subscribe({
@@ -709,7 +711,7 @@ export class Book implements AfterViewInit {
 					error: () => { /* non-critical */ },
 				});
 			},
-			error: () => { /* non-critical */ },
+			error: () => { this.serverIdResolved.set(true); },
 		});
 
 		this.db.getFlows(this.bookId).subscribe((flows) => {
