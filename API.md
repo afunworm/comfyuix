@@ -195,11 +195,88 @@ Pass the `name` value as an override to the run endpoint to use the uploaded ima
 
 ---
 
+## Discovering Flows and Their Parameters
+
+Before generating, a bot should query the available flows to discover what parameters can be overridden.
+
+### List All Flows in a Book
+
+```
+GET https://comfyuix.techcrab.io/api/books/{bookId}/flows
+Authorization: Bearer <token>  (optional for public books)
+```
+
+### Get a Single Flow
+
+```
+GET https://comfyuix.techcrab.io/api/books/{bookId}/flows/{flowId}
+Authorization: Bearer <token>  (optional for public books)
+```
+
+### Response
+
+Each flow includes a `configurables` array describing every parameter that can be overridden, and a `templates` array of named presets.
+
+```json
+{
+  "id": "uuid",
+  "name": "My Flow",
+  "configurables": [
+    {
+      "id": "positivePrompt",
+      "label": "Positive Prompt",
+      "type": "core",
+      "target": "/6/inputs/text"
+    },
+    {
+      "id": "seed",
+      "label": "Seed",
+      "type": "core",
+      "target": "/3/inputs/seed"
+    },
+    {
+      "id": "steps",
+      "label": "Steps",
+      "type": "number",
+      "target": "/3/inputs/steps"
+    }
+  ],
+  "templates": [
+    {
+      "id": "default",
+      "name": "Default",
+      "changes": [
+        { "configId": "steps", "value": 20 }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `configurables[].id` | The key to use in the `overrides` object when calling `/run` |
+| `configurables[].label` | Human-readable name of the parameter |
+| `configurables[].type` | `core` (always present: `positivePrompt`, `seed`), `text`, `number`, `image`, or `select` |
+| `configurables[].target` | JSON path into the ComfyUI API graph this parameter maps to |
+| `templates[].id` | Pass as `templateId` in the run request to use this preset |
+| `templates[].changes` | Default values this template applies for each configurable |
+
+### Recommended Bot Workflow
+
+1. `GET /api/books/{bookId}/flows` — list available flows
+2. Pick a flow; inspect its `configurables` to know what `overrides` are accepted
+3. Pick a template from `templates` (or omit to use the first one)
+4. `POST /api/books/{bookId}/run` with your chosen `flowId`, `templateId`, and `overrides`
+5. Use the `viewPath` from the response to download the image
+
+---
+
 ## Finding Your IDs
 
 - **Book ID**: Visible in the URL when viewing a book — `https://comfyuix.techcrab.io/books/{bookId}`
-- **Flow ID**: Available via `GET https://comfyuix.techcrab.io/api/books/{bookId}` — returns the book with all its flows and their IDs
-- **Template ID**: Included in the flow data returned above under `templates[].id`
+- **Flow ID**: Returned by `GET /api/books/{bookId}/flows` under each flow's `id` field
+- **Template ID**: Returned in `templates[].id` within each flow
 
 ---
 
