@@ -1,9 +1,15 @@
 volumes:
     comfyuix:
 
+networks:
+  dokploy-network:
+    external: true
+
 services:
   comfyuix_server:
     build: ./server
+    networks:
+      - dokploy-network
     ports:
       - "8888:8888"
     env_file: .env
@@ -13,6 +19,8 @@ services:
 
   comfyuix:
     build: ./client
+    networks:
+      - dokploy-network
     ports:
       - "80:80"
     env_file: .env
