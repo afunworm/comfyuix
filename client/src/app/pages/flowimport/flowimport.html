@@ -1,0 +1,881 @@
+<app-header></app-header>
+
+<div class="test-page">
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <a class="toolbar__back" [routerLink]="['/books', bookId]">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Back to Book
+    </a>
+    <button class="toolbar__toggle" [class.is-open]="jsonPanelOpen()" (click)="jsonPanelOpen.set(!jsonPanelOpen())">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"/>
+        <polyline points="8 6 2 12 8 18"/>
+      </svg>
+      Load JSON
+      <svg class="toolbar__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+    @if (tunnelConnected() !== null) {
+      <span class="toolbar__tunnel" [class.is-connected]="tunnelConnected()">
+        <span class="toolbar__tunnel-dot"></span>
+        {{ tunnelConnected() ? 'Tunnel connected' : 'Tunnel offline' }}
+      </span>
+    }
+  </div>
+
+  <!-- JSON slide-down panel -->
+  <div class="json-panel" [class.is-open]="jsonPanelOpen()">
+    <div class="json-panel__inner">
+      <textarea [(ngModel)]="apiJson" placeholder="Paste ComfyUI API JSON or workflow JSON here…" rows="4"></textarea>
+      <div class="json-panel__actions">
+        <label class="json-panel__upload-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload JSON
+          <input type="file" accept=".json,application/json" style="display:none" (change)="onJsonFileUpload($event)"/>
+        </label>
+        <button class="btn btn--primary" [disabled]="converting()" (click)="parseJson()">Load &amp; Detect</button>
+        @if (converting()) {
+          <span class="parse-converting">Converting workflow…</span>
+        }
+      </div>
+      @if (parseError()) {
+        <div class="parse-error-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {{ parseError() }}
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- Left sidebar — only shown when JSON is loaded -->
+    @if (hasData()) {
+    <div class="sidebar">
+
+      <!-- Step indicator -->
+      <div class="step-indicator">
+        <div class="step-indicator__step" [class.is-active]="sidebarStep() === 1" [class.is-done]="sidebarStep() > 1">
+          <span class="step-indicator__num">
+            @if (sidebarStep() > 1) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            } @else { 1 }
+          </span>
+          <span class="step-indicator__label">Setup</span>
+        </div>
+        <div class="step-indicator__line"></div>
+        <div class="step-indicator__step" [class.is-active]="sidebarStep() === 2" [class.is-done]="sidebarStep() > 2">
+          <span class="step-indicator__num">
+            @if (sidebarStep() > 2) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            } @else { 2 }
+          </span>
+          <span class="step-indicator__label">Configure</span>
+        </div>
+        <div class="step-indicator__line"></div>
+        <div class="step-indicator__step" [class.is-active]="sidebarStep() === 3">
+          <span class="step-indicator__num">3</span>
+          <span class="step-indicator__label">
+            Templates
+            @if (templates().length > 0) {
+              @let s = templatesStatus();
+              <span class="step-indicator__badge" [class.is-complete]="s.complete === s.total && s.total > 0">
+                {{ s.complete }}/{{ s.total }}
+              </span>
+            }
+          </span>
+        </div>
+      </div>
+
+      <!-- Step content -->
+      <div class="sidebar__content">
+
+      @if (sidebarStep() === 1) {
+
+        <!-- Step 1: Setup — name, description, output dimensions -->
+        <div class="dim-step">
+          <!-- Flow name + description -->
+          <div class="flow-setup">
+            <div>
+              <div class="flow-setup__label">Flow Name <span style="color:#e07070">*</span></div>
+              <input
+                class="flow-setup__input"
+                type="text"
+                [value]="flowName()"
+                (input)="flowName.set($any($event.target).value)"
+                placeholder="e.g. Portrait Generator"
+              />
+            </div>
+            <div>
+              <div class="flow-setup__label">Description <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></div>
+              <textarea
+                class="flow-setup__textarea"
+                [value]="flowDescription()"
+                (input)="flowDescription.set($any($event.target).value)"
+                placeholder="Describe what this flow does…"
+              ></textarea>
+            </div>
+            <div class="flow-setup__section-label">Output dimensions</div>
+          </div>
+
+          <p class="dim-step__intro">
+            How should the output image size be determined? This affects the preview placeholder
+            shown before a generation completes.
+          </p>
+          <div class="dim-toggle__options">
+            <label class="dim-toggle__option" [class.is-active]="outputDimensions() === 'fixed'">
+              <input type="radio" name="outputDim" value="fixed" [checked]="outputDimensions() === 'fixed'" (change)="outputDimensions.set('fixed')"/>
+              <div class="dim-toggle__option-body">
+                <strong>Fixed size</strong>
+                <span>Width &amp; height are defined in the workflow (e.g. an Empty Latent Image node). You'll expose those fields so users can control image size.</span>
+              </div>
+            </label>
+            <label class="dim-toggle__option" [class.is-active]="outputDimensions() === 'derived'">
+              <input type="radio" name="outputDim" value="derived" [checked]="outputDimensions() === 'derived'" (change)="outputDimensions.set('derived')"/>
+              <div class="dim-toggle__option-body">
+                <strong>Derived from input image</strong>
+                <span>The output matches the dimensions of the uploaded image. No width/height fields are needed — the workflow adapts automatically.</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+      } @else if (sidebarStep() === 2) {
+
+        <!-- Step 2: Configure — Requirements panel -->
+        <div class="requirements" [class.requirements--ready]="validation().ready">
+          <div class="requirements__heading">
+            @if (validation().ready) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Ready to proceed
+            } @else {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Required before proceeding
+            }
+          </div>
+          @for (req of validation().requirements; track req.label) {
+            <div class="requirements__row" [class.requirements__row--ok]="req.ok">
+              <svg class="requirements__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                @if (req.ok) {
+                  <polyline points="20 6 9 17 4 12"/>
+                } @else {
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                }
+              </svg>
+              <div class="requirements__text">
+                <span class="requirements__label">{{ req.label }}</span>
+                @if (!req.ok) {
+                  <span class="requirements__hint">{{ req.hint }}</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Exposed list -->
+        <div class="exposed">
+          <div class="exposed__heading">
+            Exposed
+            <span class="exposed__count">{{ exposedList().length }}</span>
+          </div>
+
+          @if (exposedList().length === 0) {
+            <p class="exposed__empty">No inputs exposed yet.</p>
+          } @else {
+            @for (item of exposedList(); track item.key) {
+              <div class="exposed__item" (click)="focusNode(item.nodeId)" title="Click to locate node">
+                <span class="type-tag" [attr.data-type]="TYPE_CATEGORY[item.config.selectValue] || 'text'">
+                  {{ item.config.selectValue }}
+                </span>
+                <span class="exposed__name">{{ item.config.name }}</span>
+                <div class="exposed__icons">
+                  @if (item.config.visible === false) {
+                    <svg class="exposed__icon exposed__icon--dim" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Hidden">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  }
+                  @if (item.config.protected) {
+                    <svg class="exposed__icon exposed__icon--lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Protected">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  }
+                </div>
+              </div>
+            }
+          }
+        </div>
+
+      } @else if (sidebarStep() === 3) {
+
+        <!-- Step 3: Templates -->
+        @let ts = templatesStatus();
+        @if (ts.total > 0 && ts.complete < ts.total) {
+          <div class="tmpl-warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ ts.total - ts.complete }} template{{ ts.total - ts.complete !== 1 ? 's' : '' }} still incomplete — open each to fill in all required fields before saving.
+          </div>
+        }
+        <div class="tmpl-list">
+          @if (templateInputs().length === 0) {
+            <p class="tmpl-list__empty">No inputs exposed yet. Go back to <strong>Configure</strong> to expose inputs.</p>
+          } @else {
+            @for (tmpl of templates(); track tmpl.id) {
+              @let st = getTemplateStatus(tmpl.id);
+              <div class="tmpl-card" [class.tmpl-card--incomplete]="st.filled < st.total">
+                <div class="tmpl-card__info">
+                  <span class="tmpl-card__name">{{ tmpl.name }}</span>
+                  @if (st.total > 0) {
+                    <span class="tmpl-card__status" [class.tmpl-card__status--ok]="st.filled === st.total">
+                      {{ st.filled }}/{{ st.total }}
+                    </span>
+                  }
+                </div>
+                <div class="tmpl-card__actions">
+                  <button class="btn-icon tmpl-card__edit-btn" (click)="openTemplateModal(tmpl.id)" title="Edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                  @if (templates().length > 1) {
+                    <button class="btn-icon tmpl-card__del-btn" (click)="deleteTemplate(tmpl.id)" title="Delete">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          }
+        </div>
+
+      }
+
+      </div><!-- /.sidebar__content -->
+
+      <!-- Add Template button (step 3 only, outside scroll area) -->
+      @if (sidebarStep() === 3) {
+        <div class="tmpl-list__add-row">
+          <button class="btn" (click)="addTemplate()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Template
+          </button>
+        </div>
+      }
+
+      <!-- Step footer -->
+      <div class="sidebar__footer">
+        @if (sidebarStep() > 1) {
+          <button class="btn sidebar__footer-back" (click)="stepBack()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Back
+          </button>
+        } @else {
+          <span></span>
+        }
+        @if (sidebarStep() === 1) {
+          <button class="btn btn--primary sidebar__footer-next" (click)="goToStep(2)">
+            Next: Configure
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        } @else if (sidebarStep() === 2) {
+          <button
+            class="btn btn--primary sidebar__footer-next"
+            [disabled]="!validation().ready"
+            (click)="goToStep(3)"
+          >
+            Next: Templates
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        } @else {
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end">
+            @if (saveError()) {
+              <span class="save-error">{{ saveError() }}</span>
+            }
+            <button
+              class="btn btn--primary sidebar__footer-next"
+              [disabled]="saving() || templatesStatus().total === 0 || templatesStatus().complete < templatesStatus().total"
+              (click)="finalize()"
+            >
+              @if (saving()) {
+                Saving…
+              } @else if (updateMode) {
+                Update Flow
+              } @else {
+                Save Flow
+              }
+              @if (!saving()) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              }
+            </button>
+          </div>
+        }
+      </div>
+
+    </div>
+    } <!-- end @if hasData() sidebar -->
+
+    <!-- Graph canvas -->
+    <div
+      #canvasEl
+      class="canvas"
+      [class.is-panning]="panning"
+      (mousedown)="onCanvasMouseDown($event)"
+      (wheel)="onWheel($event)"
+    >
+      @if (!hasData()) {
+        <div class="empty-state">
+          <div class="empty-state__card">
+            <div class="empty-state__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <h2 class="empty-state__title">Flow Configuration</h2>
+            <p class="empty-state__desc">
+              Turn any ComfyUI workflow into a curated, user-friendly flow by choosing
+              exactly which inputs to expose and how they behave.
+            </p>
+
+            <div class="empty-state__steps">
+              <div class="empty-state__step">
+                <span class="empty-state__step-num">1</span>
+                <div>
+                  <strong>Export your workflow from ComfyUI</strong>
+                  <p>Both the regular workflow JSON (<em>Save</em>) and the API format (<em>Save (API Format)</em>) are supported. The regular workflow format requires the tunnel to be active so node schemas can be fetched.</p>
+                </div>
+              </div>
+              <div class="empty-state__step">
+                <span class="empty-state__step-num">2</span>
+                <div>
+                  <strong>Paste or upload it and click Load &amp; Detect</strong>
+                  <p>The graph renders as a visual node map. Inputs are auto-detected where possible.</p>
+                </div>
+              </div>
+              <div class="empty-state__step">
+                <span class="empty-state__step-num">3</span>
+                <div>
+                  <strong>Choose which inputs to expose</strong>
+                  <p>Double-click any value on a node to edit it inline, or hover it and click the&nbsp;<strong>+</strong>&nbsp;button to expose it as a user-facing input. Set its name, type, and visibility.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      } @else {
+      <div class="world" [style.transform]="worldTransform">
+
+        <!-- SVG edges (behind nodes) -->
+        <svg class="edges">
+          @for (e of edgePaths(); track $index) {
+            <path [attr.d]="e.d" class="edge-hit"
+              (mouseenter)="hoveredEdgeIndex.set($index); hoveredEdge.set({ fromNodeId: e.fromNodeId, toNodeId: e.toNodeId })"
+              (mouseleave)="hoveredEdgeIndex.set(null); hoveredEdge.set(null)" />
+            <path [attr.d]="e.d" class="edge"
+              [attr.stroke]="hoveredEdgeIndex() === $index ? '#4ade80' : e.color"
+              [class.edge--hovered]="hoveredEdgeIndex() === $index" />
+          }
+        </svg>
+
+        <!-- Nodes -->
+        @for (node of graphNodes(); track node.id) {
+          <div
+            class="node"
+            [class.node--detected]="hasExposedInput(node)"
+            [class.node--flash]="flashingNodeId() === node.id"
+            [class.node--conn-highlight]="hoveredEdge()?.fromNodeId === node.id || hoveredEdge()?.toNodeId === node.id"
+            [style.left.px]="node.x"
+            [style.top.px]="node.y"
+            [style.width.px]="NODE_W"
+            (mousedown)="$event.stopPropagation()"
+          >
+
+            <!-- Header -->
+            <div class="node__header">
+              <span class="node__title" [title]="node.title">{{ node.title }}</span>
+              @if (referencedNodeIds().has(node.id)) {
+                <div class="node__out-port"></div>
+              }
+            </div>
+
+            <!-- Inputs -->
+            @for (input of node.inputs; track input.name) {
+
+              @if (input.isConnection) {
+                <!-- ── Connection input ── -->
+                <div class="node__row node__row--conn">
+                  <div class="node__port node__port--conn"></div>
+                  <span class="node__label">{{ input.name }}</span>
+                  <span class="node__conn-src">→ {{ input.sourceNodeId }}</span>
+                </div>
+
+              } @else if (isExposed(node.id, input.name)) {
+                <!-- ── Exposed scalar input ── -->
+                <div class="node__row node__row--exposed">
+                  <div class="node__port node__port--exposed"></div>
+                  <div class="node__exposed-body" (mousedown)="$event.stopPropagation()">
+
+                    <!-- Name + controls row -->
+                    <div class="node__exposed-top">
+                      <input
+                        class="node__name-input"
+                        type="text"
+                        [value]="getConfig(node.id, input.name)?.name ?? input.name"
+                        (input)="updateName(node.id, input.name, $any($event.target).value)"
+                      />
+                      <!-- Visibility toggle -->
+                      <button
+                        class="btn-icon"
+                        [class.is-active]="getConfig(node.id, input.name)?.visible === false"
+                        (click)="toggleVisible(node.id, input.name)"
+                        title="Toggle visibility"
+                      >
+                        @if (getConfig(node.id, input.name)?.visible !== false) {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        } @else {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        }
+                      </button>
+                      <!-- Protected toggle (shield) — locks the value for end users -->
+                      <button
+                        class="btn-icon"
+                        [class.is-active]="getConfig(node.id, input.name)?.protected"
+                        (click)="toggleProtected(node.id, input.name)"
+                        title="Toggle protected — end users must unlock before editing"
+                      >
+                        @if (getConfig(node.id, input.name)?.protected) {
+                          <!-- Shield filled -->
+                          <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                          </svg>
+                        } @else {
+                          <!-- Shield outline -->
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                          </svg>
+                        }
+                      </button>
+                      <!-- Type lock — auto-detected type, click to allow changing -->
+                      <button
+                        class="btn-icon node__type-lock-btn"
+                        [class.is-locked]="getConfig(node.id, input.name)?.typeLocked"
+                        (click)="toggleTypeLocked(node.id, input.name)"
+                        [title]="getConfig(node.id, input.name)?.typeLocked ? 'Type auto-detected — click to override' : 'Lock type'"
+                      >
+                        @if (getConfig(node.id, input.name)?.typeLocked) {
+                          <!-- Lock closed -->
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                          </svg>
+                        } @else {
+                          <!-- Lock open -->
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                          </svg>
+                        }
+                      </button>
+                      <!-- Unexpose -->
+                      <button
+                        class="btn-icon node__unexpose"
+                        (click)="unexpose(node.id, input.name)"
+                        title="Remove from exposed"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- Type select (full width, disabled when type is locked) -->
+                    <div class="node__exposed-btm">
+                      <select
+                        class="type-tag"
+                        style="width:100%"
+                        [attr.data-type]="getTypeCategory(node.id, input.name)"
+                        [disabled]="getConfig(node.id, input.name)?.typeLocked"
+                        (change)="updateType(node.id, input.name, $any($event.target).value)"
+                      >
+                        @for (opt of typeOptions; track opt.value) {
+                          <option
+                            [value]="opt.value"
+                            [selected]="getConfig(node.id, input.name)?.selectValue === opt.value"
+                          >{{ opt.label }}</option>
+                        }
+                      </select>
+                    </div>
+
+                    <!-- LoRA picker button (shown only when type is lora) -->
+                    @if (getConfig(node.id, input.name)?.selectValue === 'lora') {
+                      <div class="node__lora-row" (mousedown)="$event.stopPropagation()">
+                        <button class="btn node__lora-btn" (click)="openLoraPicker(node.id + ':' + input.name)">
+                          @let count = getConfig(node.id, input.name)?.presets?.length ?? 0;
+                          {{ count ? 'LoRAs (' + count + ' selected)' : 'Choose LoRAs' }}
+                        </button>
+                      </div>
+                    }
+
+                    <!-- Preset options button (shown only when type is preset) -->
+                    @if (getConfig(node.id, input.name)?.selectValue === 'preset') {
+                      <div class="node__lora-row" (mousedown)="$event.stopPropagation()">
+                        <button class="btn node__preset-btn" (click)="openPresetOptions(node.id + ':' + input.name)">
+                          @let count = getConfig(node.id, input.name)?.presets?.length ?? 0;
+                          {{ count ? 'Options (' + count + ' defined)' : 'Define Options' }}
+                        </button>
+                      </div>
+                    }
+
+                  </div>
+                </div>
+
+              } @else {
+                <!-- ── Unexposed scalar input ── -->
+                <div class="node__row node__row--scalar">
+                  <span class="node__label">{{ input.name }}</span>
+                  @if (editingInlineKey() === node.id + ':' + input.name) {
+                    <input
+                      class="node__inline-input"
+                      [value]="editingInlineValue()"
+                      (input)="editingInlineValue.set($any($event.target).value)"
+                      (keydown.enter)="commitInlineEdit(node.id, input.name)"
+                      (keydown.escape)="cancelInlineEdit()"
+                      (blur)="commitInlineEdit(node.id, input.name)"
+                      (mousedown)="$event.stopPropagation()"
+                      #inlineInput
+                    />
+                  } @else {
+                    <span
+                      class="node__value"
+                      [class.node__value--editable]="input.value !== undefined && !input.isConnection"
+                      [title]="input.value !== undefined ? 'Double-click to edit' : ''"
+                      (dblclick)="input.value !== undefined && startInlineEdit(node.id, input.name, input.value); $event.stopPropagation()"
+                      (mousedown)="$event.stopPropagation()"
+                    >{{ input.value }}</span>
+                  }
+                  <button
+                    class="node__expose-btn"
+                    (click)="expose(node.id, input.name)"
+                    (mousedown)="$event.stopPropagation()"
+                    title="Expose this input"
+                  >+</button>
+                </div>
+              }
+
+            }
+          </div>
+        }
+
+      </div>
+      }
+
+      <!-- Floating legend (bottom-right of canvas) -->
+      @if (hasData()) {
+      <div class="float-legend">
+        <div class="legend__title">Guide</div>
+
+        <div class="legend__section-label">Exposing inputs</div>
+        <div class="legend__row">
+          <span class="legend__port legend__port--scalar"></span>
+          <span>Hover a scalar input and click <strong>+</strong> to expose it.</span>
+        </div>
+        <div class="legend__row">
+          <span class="legend__port legend__port--exposed"></span>
+          <span>Exposed input — give it a name and type.</span>
+        </div>
+
+        <div class="legend__sep"></div>
+
+        <div class="legend__section-label">Controls on exposed inputs</div>
+        <div class="legend__row">
+          <svg class="legend__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          <span><strong>Visibility</strong> — hidden from users.</span>
+        </div>
+        <div class="legend__row">
+          <svg class="legend__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span><strong>Protected</strong> — users must unlock to edit.</span>
+        </div>
+        <div class="legend__row">
+          <svg class="legend__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span><strong>Type lock</strong> — auto-detected; click to override.</span>
+        </div>
+
+        <div class="legend__sep"></div>
+
+        <div class="legend__section-label">Exposed nodes</div>
+        <div class="legend__row">
+          <span class="legend__detected-sample"></span>
+          <span>Orange border = has exposed inputs.</span>
+        </div>
+      </div>
+      }
+
+      <!-- Search overlay (top-right of canvas) -->
+      @if (hasData()) {
+        <div class="graph-search" (mousedown)="$event.stopPropagation()">
+          <div class="graph-search__wrap" [class.graph-search__wrap--active]="searchQuery()">
+            <svg class="graph-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              #searchInput
+              class="graph-search__input"
+              type="text"
+              placeholder="Search nodes…"
+              [value]="searchQuery()"
+              (input)="searchQuery.set($any($event.target).value); searchMatchIndex.set(0)"
+              (keydown.enter)="runSearch()"
+              (keydown.escape)="clearSearch()"
+            />
+            @if (searchQuery()) {
+              <span class="graph-search__count">
+                {{ searchMatches().length ? ((searchMatchIndex() || 1) + '/' + searchMatches().length) : 'no match' }}
+              </span>
+              <button class="graph-search__clear" type="button" (click)="clearSearch()" title="Clear search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Preset options dialog -->
+@if (presetOptionsKey()) {
+  <div class="lora-backdrop" (click)="closePresetOptions()"></div>
+  <div class="lora-dialog">
+    <div class="lora-dialog__header">
+      <span class="lora-dialog__title">Define Preset Options</span>
+      <button class="btn-icon" (click)="closePresetOptions()" title="Cancel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <p class="lora-dialog__hint">Enter one option per line. These will appear as choices in the template form.</p>
+    <div class="preset-insert-btns">
+      <button class="btn" type="button" (click)="insertPresets(models.checkpoints)">Checkpoints</button>
+      <button class="btn" type="button" (click)="insertPresets(models.textEncoders)">Text Encoders</button>
+      <button class="btn" type="button" (click)="insertPresets(models.diffusionModels)">Diffusion Models</button>
+      <button class="btn" type="button" (click)="insertPresets(models.clipVisions)">Clip Visions</button>
+      <button class="btn" type="button" (click)="insertPresets(models.controlnets)">Controlnets</button>
+      <button class="btn" type="button" (click)="insertPresets(models.modelPatches)">Model Patches</button>
+    </div>
+    <textarea
+      class="preset-options-textarea"
+      rows="8"
+      [value]="presetOptionsText()"
+      (input)="presetOptionsText.set($any($event.target).value)"
+      placeholder="Option A&#10;Option B&#10;Option C"
+    ></textarea>
+    <div class="lora-dialog__actions">
+      <button class="btn" (click)="closePresetOptions()">Cancel</button>
+      <button class="btn btn--primary" (click)="savePresetOptions()">Save</button>
+    </div>
+  </div>
+}
+
+<!-- LoRA picker dialog -->
+@if (loraPickerKey()) {
+  <div class="lora-backdrop" (click)="closeLoraPicker()"></div>
+  <div class="lora-dialog">
+    <div class="lora-dialog__header">
+      <span class="lora-dialog__title">Select LoRAs</span>
+      <button class="btn-icon" (click)="closeLoraPicker()" title="Cancel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    @if (loraLoading()) {
+      <p class="lora-dialog__hint">Loading LoRAs…</p>
+    } @else if (loraPicker(); as picker) {
+      <div class="lora-dialog__toolbar">
+        <button class="btn" (click)="setAllLoraSelections(true)">Select All</button>
+        <button class="btn" (click)="setAllLoraSelections(false)">Deselect All</button>
+      </div>
+      @if (picker.items.length === 0) {
+        <p class="lora-dialog__hint">No LoRAs found on this server.</p>
+      } @else {
+        <div class="lora-picker-list">
+          @for (item of picker.items; track item) {
+            <label class="lora-picker-item">
+              <input type="checkbox" [checked]="picker.selected.has(item)" (change)="toggleLoraSelection(item)"/>
+              <span>{{ item }}</span>
+            </label>
+          }
+        </div>
+      }
+      <div class="lora-dialog__actions">
+        <button class="btn" (click)="closeLoraPicker()">Cancel</button>
+        <button class="btn btn--primary" (click)="saveLoraPicker()">
+          Save ({{ loraPicker()?.selected?.size ?? 0 }} selected)
+        </button>
+      </div>
+    }
+  </div>
+}
+
+<!-- Template edit modal -->
+@if (editingTemplateId()) {
+  <div class="tmpl-modal-backdrop" (click)="closeTemplateModal()"></div>
+  <div class="tmpl-modal">
+
+    <div class="tmpl-modal__header">
+      <div class="tmpl-modal__name-row">
+        <input
+          class="tmpl-modal__name-input"
+          type="text"
+          [value]="editingName()"
+          (input)="editingName.set($any($event.target).value)"
+          placeholder="Template name"
+        />
+        <!-- Copy from submenu -->
+        @if (otherTemplates().length > 0) {
+          <div class="tmpl-modal__copy-wrap">
+            <button class="btn tmpl-modal__copy-btn" (click)="copyFromMenuOpen.set(!copyFromMenuOpen())">
+              Copy from
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            @if (copyFromMenuOpen()) {
+              <div class="tmpl-modal__copy-menu">
+                @for (t of otherTemplates(); track t.id) {
+                  <button class="tmpl-modal__copy-item" (click)="copyFromTemplate(t.id)">
+                    {{ t.name }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <button class="btn-icon" (click)="closeTemplateModal()" title="Cancel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <p class="tmpl-modal__hint">
+      Set a value for each field. These values are used whenever this template is selected at runtime.
+    </p>
+
+    <div class="tmpl-modal__body">
+      @for (inp of templateInputs(); track inp.key) {
+        @if (inp.required) {
+          <div class="tmpl-row">
+            <div class="tmpl-row__head">
+              <span class="type-tag" [attr.data-type]="TYPE_CATEGORY[inp.config.selectValue] || 'text'" style="pointer-events:none">
+                {{ inp.config.selectValue }}
+              </span>
+              <span class="tmpl-row__name">{{ inp.config.name }}</span>
+            </div>
+            <div class="tmpl-row__field">
+              @if (inp.config.selectValue === 'preset') {
+                <select
+                  [value]="getEditingValue(inp.key)"
+                  (change)="setEditingValue(inp.key, $any($event.target).value)"
+                >
+                  <option value="">— select —</option>
+                  @for (p of inp.config.presets ?? []; track p) {
+                    <option [value]="p" [selected]="getEditingValue(inp.key) === p">{{ p }}</option>
+                  }
+                </select>
+              } @else if (inp.config.selectValue === 'lora') {
+                @if ((inp.config.presets ?? []).length === 0) {
+                  <p class="tmpl-row__skip-note">No LoRAs defined. Go back to <strong>Configure</strong> and click Choose LoRAs.</p>
+                } @else {
+                  <select
+                    [value]="getEditingValue(inp.key)"
+                    (change)="setEditingValue(inp.key, $any($event.target).value)"
+                  >
+                    <option value="None">None</option>
+                    @for (lora of inp.config.presets ?? []; track lora) {
+                      <option [value]="lora" [selected]="getEditingValue(inp.key) === lora">{{ lora }}</option>
+                    }
+                  </select>
+                }
+              } @else if (inp.config.selectValue === 'multilineText') {
+                <textarea
+                  rows="3"
+                  [value]="getEditingValue(inp.key)"
+                  [placeholder]="getApiPlaceholder(inp.key) || 'Enter value…'"
+                  (input)="setEditingValue(inp.key, $any($event.target).value)"
+                ></textarea>
+              } @else {
+                <input
+                  [type]="isNumberType(inp.config.selectValue) ? 'number' : 'text'"
+                  [value]="getEditingValue(inp.key)"
+                  [placeholder]="getApiPlaceholder(inp.key) || 'Enter value…'"
+                  (input)="setEditingValue(inp.key, $any($event.target).value)"
+                />
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+
+    <div class="tmpl-modal__footer">
+      <button class="btn" (click)="closeTemplateModal()">Cancel</button>
+      <button class="btn btn--primary" (click)="saveTemplateModal()">Save</button>
+    </div>
+
+  </div>
+}

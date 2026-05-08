@@ -1,0 +1,270 @@
+<div class="app">
+	<app-header />
+
+	<!-- MAIN -->
+	<main class="page">
+		<section class="panel section">
+			<div class="output__head">
+				<h2 class="output__title">Settings</h2>
+			</div>
+			<div
+				style="
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 12px;
+					flex-wrap: wrap;
+					margin-top: 10px;
+				"
+			>
+				<div>
+					<div style="font-weight: 600; font-size: 0.9rem">Public Signups</div>
+					<div style="font-size: 0.82rem; color: var(--muted); margin-top: 2px">
+						Allow anyone to create an account from the login page
+					</div>
+				</div>
+				<button
+					type="button"
+					class="btn"
+					[class.btn--primary]="signupsEnabled()"
+					[disabled]="settingsLoading()"
+					(click)="toggleSignups()"
+				>
+					{{ signupsEnabled() ? "Enabled" : "Disabled" }}
+				</button>
+			</div>
+		</section>
+
+		<section class="panel section">
+			<div class="output__head">
+				<h2 class="output__title">Users</h2>
+				@if (!showCreateForm()) {
+					<button class="btn" type="button" (click)="openCreateForm()">
+						+ New User
+					</button>
+				}
+			</div>
+
+			@if (showCreateForm()) {
+				<div
+					class="panel"
+					style="margin-bottom: 16px; padding: 14px; display: grid; gap: 12px"
+				>
+					<h3 style="margin: 0; font-size: 0.95rem">New User</h3>
+					<div class="grid-2">
+						<div class="field">
+							<label class="label">Username *</label>
+							<input
+								class="control"
+								type="text"
+								[value]="createDraft().username"
+								(input)="patchCreate({ username: $any($event.target).value })"
+							/>
+						</div>
+						<div class="field">
+							<label class="label">Email *</label>
+							<input
+								class="control"
+								type="email"
+								[value]="createDraft().email"
+								(input)="patchCreate({ email: $any($event.target).value })"
+							/>
+						</div>
+					</div>
+					<div class="grid-2">
+						<div class="field">
+							<label class="label">Password *</label>
+							<input
+								class="control"
+								type="password"
+								[value]="createDraft().password"
+								(input)="patchCreate({ password: $any($event.target).value })"
+							/>
+						</div>
+						<div class="field">
+							<label class="label">Role</label>
+							<select
+								class="select"
+								[value]="createDraft().role"
+								(change)="patchCreate({ role: $any($event.target).value })"
+							>
+								<option value="user">User</option>
+								<option value="admin">Admin</option>
+							</select>
+						</div>
+					</div>
+					<div class="btn-row btn-row--right">
+						<button class="btn" type="button" (click)="closeCreateForm()">
+							Cancel
+						</button>
+						<button class="btn btn--primary" type="button" (click)="submitCreate()">
+							Create User
+						</button>
+					</div>
+				</div>
+			}
+
+			@if (loading()) {
+				<p style="padding: 12px; opacity: 0.5">Loading users…</p>
+			} @else if (users().length === 0) {
+				<p style="padding: 12px; opacity: 0.5">No users found.</p>
+			} @else {
+				<div style="display: grid; gap: 10px; margin-top: 16px">
+					@for (user of users(); track user.id) {
+						<div class="panel" style="padding: 14px">
+							<!-- VIEW MODE -->
+							@if (editingUserId() !== user.id) {
+								<div
+									style="
+										display: flex;
+										align-items: center;
+										justify-content: space-between;
+										gap: 12px;
+										flex-wrap: wrap;
+									"
+								>
+									<div style="min-width: 0">
+										<div
+											style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"
+										>
+											<span style="font-weight: 600">{{ user.username }}</span>
+											@if (user.role === "admin") {
+												<span class="badge badge--accent" style="font-size: 0.72em"
+													>Admin</span
+												>
+											}
+											@if (user.is_disabled) {
+												<span class="badge" style="font-size: 0.72em; color: var(--danger)"
+													>Disabled</span
+												>
+											}
+											@if (!user.email_verified) {
+												<span class="badge" style="font-size: 0.72em; opacity: 0.6"
+													>Unverified</span
+												>
+											}
+											@if (isSelf(user)) {
+												<span class="badge" style="font-size: 0.72em; opacity: 0.5"
+													>You</span
+												>
+											}
+										</div>
+										<p style="margin: 4px 0 0; font-size: 0.85rem; opacity: 0.55">
+											{{ user.email }}
+										</p>
+										<p style="margin: 2px 0 0; font-size: 0.78rem; opacity: 0.35">
+											joined {{ user.created_at | date: "mediumDate" }}
+										</p>
+									</div>
+
+									<div
+										style="display: flex; align-items: center; gap: 6px; flex-shrink: 0"
+									>
+										<!-- Edit -->
+										<button
+											type="button"
+											class="btn"
+											style="padding: 5px 10px; font-size: 0.83rem"
+											(click)="startEdit(user)"
+										>
+											Edit
+										</button>
+
+										<!-- Disable / Enable (not self) -->
+										@if (!isSelf(user)) {
+											<button
+												type="button"
+												class="btn"
+												style="padding: 5px 10px; font-size: 0.83rem"
+												(click)="toggleDisabled(user)"
+											>
+												{{ user.is_disabled ? "Enable" : "Disable" }}
+											</button>
+										}
+
+										<!-- Delete (not self) -->
+										@if (!isSelf(user)) {
+											<button
+												type="button"
+												class="btn"
+												style="padding: 5px 10px; font-size: 0.83rem; color: var(--danger)"
+												(click)="deleteUser(user)"
+											>
+												Delete
+											</button>
+										}
+									</div>
+								</div>
+							}
+
+							<!-- EDIT MODE -->
+							@if (editingUserId() === user.id) {
+								<div style="display: grid; gap: 12px">
+									<div class="grid-2">
+										<div class="field">
+											<label class="label">Username</label>
+											<input
+												class="control"
+												type="text"
+												[value]="editDraft().username ?? ''"
+												(input)="patchDraft({ username: $any($event.target).value })"
+											/>
+										</div>
+										<div class="field">
+											<label class="label">Email</label>
+											<input
+												class="control"
+												type="email"
+												[value]="editDraft().email ?? ''"
+												(input)="patchDraft({ email: $any($event.target).value })"
+											/>
+										</div>
+									</div>
+									<div class="grid-2">
+										<div class="field">
+											<label class="label">Role</label>
+											<select
+												class="select"
+												[value]="editDraft().role ?? 'user'"
+												(change)="patchDraft({ role: $any($event.target).value })"
+											>
+												<option value="user">User</option>
+												<option value="admin">Admin</option>
+											</select>
+										</div>
+										<div class="field">
+											<label class="label"
+												>New Password
+												<span style="opacity: 0.5">(leave blank to keep)</span></label
+											>
+											<input
+												class="control"
+												type="password"
+												[value]="editDraft().password ?? ''"
+												(input)="patchDraft({ password: $any($event.target).value })"
+											/>
+										</div>
+									</div>
+									<div class="btn-row btn-row--right">
+										<button class="btn" type="button" (click)="cancelEdit()">
+											Cancel
+										</button>
+										<button
+											class="btn btn--primary"
+											type="button"
+											(click)="saveEdit(user)"
+										>
+											Save
+										</button>
+									</div>
+								</div>
+							}
+						</div>
+					}
+				</div>
+			}
+		</section>
+	</main>
+
+	<app-footer />
+</div>

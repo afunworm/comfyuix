@@ -1,0 +1,829 @@
+<div
+	class="ce-overlay"
+	[class.ce-visible]="isOpen()"
+	(click)="dismissContextMenu()"
+>
+	<!-- Hidden file input -->
+	<input
+		#fileInput
+		type="file"
+		accept="image/*"
+		style="display: none"
+		(change)="onFileSelected($event)"
+	/>
+
+	<!-- ──────────────── HEADER ──────────────── -->
+	<header class="ce-header">
+		<div class="ce-brand">
+			@if (branding.logoUrl) {
+				<img [src]="branding.logoUrl" class="ce-brand-logo" alt="logo" />
+			}
+			<span class="ce-brand-name">{{ branding.name || "Canvas Editor" }}</span>
+		</div>
+
+		<div class="ce-canvas-info">
+			<span class="ce-dim-badge">{{ canvasWidth() }} × {{ canvasHeight() }}</span>
+			<button
+				class="ce-icon-btn"
+				title="Resize Canvas"
+				(click)="
+					resizeW.set(canvasWidth());
+					resizeH.set(canvasHeight());
+					showResizeDialog.set(true);
+					$event.stopPropagation()
+				"
+			>
+				⊞
+			</button>
+		</div>
+
+		<div class="ce-layer-menu">
+			<button class="ce-menu-btn" (click)="showLayerMenu($event)">Layer ▾</button>
+		</div>
+
+		<div class="ce-zoom-controls">
+			<button class="ce-icon-btn" (click)="zoomOut()">−</button>
+			<span class="ce-zoom-label" (click)="fitToWindow()">{{ zoomPercent }}</span>
+			<button class="ce-icon-btn" (click)="zoomIn()">+</button>
+			<button class="ce-icon-btn" title="Reset" (click)="zoomReset()">⊙</button>
+		</div>
+
+		<div class="ce-header-actions">
+			<button class="ce-btn-ghost" (click)="close(false)">Cancel</button>
+			<button
+				class="ce-btn-done"
+				[style.background]="accentColor"
+				[disabled]="doneButtonDisabled()"
+				(click)="done()"
+			>
+				{{ doneButtonLabel() }}
+			</button>
+		</div>
+	</header>
+
+	<!-- ──────────────── TOOL OPTIONS BAR ──────────────── -->
+	<div class="ce-options-bar">
+		<button class="ce-opt-btn" (click)="undo()" title="Undo (Ctrl+Z)">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M3 10h10a5 5 0 010 10H7m-4-10l4-4M3 10l4 4" />
+			</svg>
+		</button>
+		<button class="ce-opt-btn" (click)="redo()" title="Redo (Ctrl+Y)">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M21 10H11a5 5 0 000 10h6m4-10l-4-4m4 4l-4 4" />
+			</svg>
+		</button>
+
+		<div class="ce-opt-sep"></div>
+
+		@if (currentTool() === "brush" || currentTool() === "eraser") {
+			<label class="ce-opt-label">Size</label>
+			<input
+				type="number"
+				class="ce-opt-number"
+				min="1"
+				max="200"
+				[value]="brushSize()"
+				(change)="brushSize.set(+$any($event.target).value)"
+			/>
+			<input
+				type="range"
+				class="ce-opt-range"
+				min="1"
+				max="200"
+				[value]="brushSize()"
+				(input)="brushSize.set(+$any($event.target).value)"
+			/>
+			<div class="ce-opt-sep"></div>
+			<label class="ce-opt-label">Opacity</label>
+			<input
+				type="number"
+				class="ce-opt-number"
+				min="1"
+				max="100"
+				[value]="Math.round(brushOpacity() * 100)"
+				(change)="brushOpacity.set(+$any($event.target).value / 100)"
+			/>
+			<span class="ce-opt-unit">%</span>
+			<input
+				type="range"
+				class="ce-opt-range"
+				min="1"
+				max="100"
+				step="1"
+				[value]="brushOpacity() * 100"
+				(input)="brushOpacity.set(+$any($event.target).value / 100)"
+			/>
+		}
+
+		@if (currentTool() === "brush" || currentTool() === "fill") {
+			<div class="ce-opt-sep"></div>
+			<label class="ce-opt-label">Color</label>
+			<label
+				class="ce-opt-color"
+				[style.background]="brushColor()"
+				title="Pick color"
+			>
+				<input
+					type="color"
+					[value]="brushColor()"
+					(input)="brushColor.set($any($event.target).value)"
+				/>
+			</label>
+		}
+
+		@if (currentTool() === "text") {
+			<label class="ce-opt-label">Size</label>
+			<input
+				type="number"
+				class="ce-opt-number"
+				min="6"
+				max="400"
+				[value]="textStyle().fontSize"
+				(change)="setTextFontSize($event)"
+			/>
+			<div class="ce-opt-sep"></div>
+			<label class="ce-opt-label">Font</label>
+			<select
+				class="ce-opt-select"
+				[value]="textStyle().fontFamily"
+				(change)="setTextFontFamily($event)"
+			>
+				@for (f of fontFamilies; track f) {
+					<option [value]="f">{{ f }}</option>
+				}
+			</select>
+			<div class="ce-opt-sep"></div>
+			<button
+				class="ce-opt-btn"
+				[class.ce-opt-btn--active]="textStyle().bold"
+				(click)="toggleTextBold()"
+				title="Bold (Ctrl+B)"
+			>
+				<b>B</b>
+			</button>
+			<button
+				class="ce-opt-btn"
+				[class.ce-opt-btn--active]="textStyle().italic"
+				(click)="toggleTextItalic()"
+				title="Italic"
+			>
+				<i>I</i>
+			</button>
+			<button
+				class="ce-opt-btn ce-opt-btn--u"
+				[class.ce-opt-btn--active]="textStyle().underline"
+				(click)="toggleTextUnderline()"
+				title="Underline"
+			>
+				<u>U</u>
+			</button>
+			<button
+				class="ce-opt-btn ce-opt-btn--s"
+				[class.ce-opt-btn--active]="textStyle().strikethrough"
+				(click)="toggleTextStrikethrough()"
+				title="Strikethrough"
+			>
+				<s>S</s>
+			</button>
+			<div class="ce-opt-sep"></div>
+			<button
+				class="ce-opt-btn"
+				[class.ce-opt-btn--active]="textStyle().align === 'left'"
+				(click)="setTextAlign('left')"
+				title="Align left"
+			>
+				⬅
+			</button>
+			<button
+				class="ce-opt-btn"
+				[class.ce-opt-btn--active]="textStyle().align === 'center'"
+				(click)="setTextAlign('center')"
+				title="Align center"
+			>
+				↔
+			</button>
+			<button
+				class="ce-opt-btn"
+				[class.ce-opt-btn--active]="textStyle().align === 'right'"
+				(click)="setTextAlign('right')"
+				title="Align right"
+			>
+				➡
+			</button>
+			<div class="ce-opt-sep"></div>
+			<label class="ce-opt-label" title="Letter spacing">LS</label>
+			<input
+				type="number"
+				class="ce-opt-number"
+				min="-10"
+				max="40"
+				step="0.5"
+				[value]="textStyle().letterSpacing"
+				(change)="setTextLetterSpacing($event)"
+			/>
+			<div class="ce-opt-sep"></div>
+			<label class="ce-opt-label" title="Line height">LH</label>
+			<input
+				type="number"
+				class="ce-opt-number"
+				min="0.5"
+				max="4"
+				step="0.05"
+				[value]="textStyle().lineHeight"
+				(change)="setTextLineHeight($event)"
+			/>
+			<div class="ce-opt-sep"></div>
+			<label
+				class="ce-opt-color"
+				[style.background]="textStyle().color"
+				title="Text color"
+			>
+				<input
+					type="color"
+					[value]="textStyle().color"
+					(input)="setTextColor($event)"
+				/>
+			</label>
+		}
+
+		@if (currentTool() === "select" && activeLayer()) {
+			@if (activeLayer()!.type === "text") {
+				<label class="ce-opt-label">Size</label>
+				<input
+					type="number"
+					class="ce-opt-number ce-opt-number--wide"
+					min="8"
+					max="1000"
+					[value]="activeLayer()!.textStyle?.fontSize ?? 32"
+					(change)="setTextLayerFontSize(+$any($event.target).value)"
+				/>
+				<span class="ce-opt-unit">px</span>
+				<div class="ce-opt-sep"></div>
+			} @else {
+				<label class="ce-opt-label">W</label>
+				<input
+					type="number"
+					class="ce-opt-number ce-opt-number--wide"
+					min="1"
+					[value]="activeLayer()!.w"
+					(change)="setActiveLayerW(+$any($event.target).value)"
+				/>
+				<span class="ce-opt-unit">px</span>
+				<div class="ce-opt-sep"></div>
+				<label class="ce-opt-label">H</label>
+				<input
+					type="number"
+					class="ce-opt-number ce-opt-number--wide"
+					min="1"
+					[value]="activeLayer()!.h"
+					(change)="setActiveLayerH(+$any($event.target).value)"
+				/>
+				<span class="ce-opt-unit">px</span>
+				<div class="ce-opt-sep"></div>
+			}
+			<label class="ce-opt-label">⟲</label>
+			<input
+				type="number"
+				class="ce-opt-number ce-opt-number--wide"
+				min="-180"
+				max="180"
+				step="1"
+				[value]="activeLayer()!.rotation"
+				(change)="setActiveLayerRotation(+$any($event.target).value)"
+			/>
+			<span class="ce-opt-unit">°</span>
+			<div class="ce-opt-sep"></div>
+			<span class="ce-opt-hint">⇧ Shift = 15° snaps</span>
+		}
+	</div>
+
+	<!-- ──────────────── MAIN ──────────────── -->
+	<div class="ce-main">
+		<!-- ──── TOOLBAR ──── -->
+		<aside class="ce-toolbar">
+			<div class="ce-tool-group">
+				<button
+					class="ce-tool"
+					[class.ce-tool--active]="currentTool() === 'select'"
+					(click)="currentTool.set('select')"
+					title="Select / Move (V)"
+				>
+					<svg viewBox="0 0 24 24" fill="currentColor">
+						<path d="M4 0l16 12-7 1-4 7L4 0z" />
+					</svg>
+				</button>
+				<button
+					class="ce-tool"
+					[class.ce-tool--active]="currentTool() === 'brush'"
+					(click)="currentTool.set('brush')"
+					title="Brush (B)"
+				>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path d="M3 17c1-4 4-7 7-8l6-6 3 3-6 6c-1 3-4 6-8 7z" />
+						<circle cx="4.5" cy="19.5" r="2.5" fill="currentColor" stroke="none" />
+					</svg>
+				</button>
+				<button
+					class="ce-tool"
+					[class.ce-tool--active]="currentTool() === 'eraser'"
+					(click)="currentTool.set('eraser')"
+					title="Eraser (E)"
+				>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<rect x="2" y="12" width="14" height="8" rx="2" />
+						<path d="M8 12L18 2l4 4-10 10" />
+					</svg>
+				</button>
+				<button
+					class="ce-tool"
+					[class.ce-tool--active]="currentTool() === 'fill'"
+					(click)="currentTool.set('fill')"
+					title="Fill (G)"
+				>
+					<svg viewBox="0 0 24 24" fill="currentColor">
+						<path
+							d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 000 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z"
+						/>
+					</svg>
+				</button>
+				<button
+					class="ce-tool"
+					[class.ce-tool--active]="currentTool() === 'eyedropper'"
+					(click)="currentTool.set('eyedropper')"
+					title="Eyedropper (I)"
+				>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							d="M20 5l-1.5-1.5a3.5 3.5 0 00-4.95 0l-9 9a3.5 3.5 0 000 4.95l1 1a3.5 3.5 0 004.95 0l9-9A3.5 3.5 0 0020 5z"
+						/>
+						<circle cx="4" cy="20" r="2" fill="currentColor" stroke="none" />
+					</svg>
+				</button>
+				<button
+					class="ce-tool"
+					[class.ce-tool--active]="currentTool() === 'text'"
+					(click)="currentTool.set('text')"
+					title="Text (T)"
+				>
+					<svg viewBox="0 0 24 24" fill="currentColor">
+						<path d="M5 4v3h5.5v12h3V7H19V4z" />
+					</svg>
+				</button>
+			</div>
+		</aside>
+
+		<!-- ──── CANVAS WORKSPACE ──── -->
+		<div
+			class="ce-workspace"
+			#canvasWrap
+			(wheel)="onWheel($event)"
+			(contextmenu)="showCanvasContextMenu($event)"
+		>
+			<div class="ce-canvas-stage" [style.transform]="canvasTransform">
+				<canvas
+					#displayCanvas
+					[width]="canvasWidth()"
+					[height]="canvasHeight()"
+					class="ce-display-canvas"
+				>
+				</canvas>
+				<canvas
+					#interactionCanvas
+					[width]="canvasWidth()"
+					[height]="canvasHeight()"
+					class="ce-interaction-canvas"
+					[style.cursor]="cursorStyle"
+					[style.pointer-events]="textEditActive() ? 'none' : 'auto'"
+					(pointerdown)="onPointerDown($event)"
+					(pointermove)="onPointerMove($event)"
+					(pointerup)="onPointerUp($event)"
+					(pointerenter)="cursorOnCanvas.set(true)"
+					(pointerleave)="cursorOnCanvas.set(false); onPointerUp($event)"
+					(dblclick)="onDblClick($event)"
+				>
+				</canvas>
+			</div>
+		</div>
+
+		<!-- ──── LAYERS PANEL ──── -->
+		<aside class="ce-layers-panel">
+			<div class="ce-panel-header">
+				<span class="ce-panel-title">Layers</span>
+				<div class="ce-panel-actions">
+					<button
+						class="ce-icon-btn"
+						title="Add Raster Layer"
+						(click)="addLayer('raster')"
+					>
+						+
+					</button>
+					<button
+						class="ce-icon-btn"
+						title="Upload Image Layer"
+						(click)="triggerFileUpload()"
+					>
+						↑
+					</button>
+					<button
+						class="ce-icon-btn"
+						title="Image from URL"
+						(click)="showUrlDialog.set(true); $event.stopPropagation()"
+					>
+						⌘
+					</button>
+				</div>
+			</div>
+
+			<!-- Active layer quick props -->
+			@if (activeLayer()) {
+				<div class="ce-layer-props">
+					<div class="ce-prop-row">
+						<label class="ce-prop-label">Opacity</label>
+						<input
+							type="range"
+							class="ce-range ce-range--sm"
+							min="0"
+							max="100"
+							step="1"
+							[value]="activeLayerOpacity"
+							(input)="onLayerOpacityChange(activeLayer()!, $event)"
+						/>
+						<span class="ce-prop-value">{{ activeLayerOpacity }}%</span>
+					</div>
+					<div class="ce-prop-row">
+						<label class="ce-prop-label">Blend</label>
+						<select
+							class="ce-select ce-select--sm"
+							[value]="activeLayer()!.blendMode"
+							(change)="onLayerBlendModeChange(activeLayer()!, $event)"
+						>
+							@for (m of blendModes; track m) {
+								<option [value]="m">{{ m }}</option>
+							}
+						</select>
+					</div>
+					@if (activeLayer()!.maskCanvas) {
+						<div class="ce-prop-row">
+							<label class="ce-prop-label">Mask</label>
+							<button
+								class="ce-btn-xs"
+								[class.ce-btn-xs--active]="editingMask()"
+								(click)="toggleEditingMask()"
+							>
+								{{ editingMask() ? "● Editing Mask" : "Edit Mask" }}
+							</button>
+						</div>
+					}
+				</div>
+			}
+
+			<!-- Layer list -->
+			<div class="ce-layers-list">
+				@for (layer of layers(); track layer.id) {
+					<div
+						class="ce-layer-item"
+						[class.ce-layer-item--active]="activeLayerId() === layer.id"
+						(click)="selectLayer(layer)"
+						(dblclick)="
+							layer.type === 'text' && openTextEdit(layer, layer.x, layer.y)
+						"
+						(contextmenu)="showLayerContextMenu($event, layer)"
+						draggable="true"
+						(dragstart)="onLayerDragStart($event, layer)"
+						(dragover)="onLayerDragOver($event, layer)"
+						(drop)="onLayerDrop($event, layer)"
+					>
+						<div class="ce-layer-drag-handle">⋮⋮</div>
+
+						<img
+							class="ce-layer-thumb"
+							[src]="getLayerThumbnail(layer)"
+							[class.ce-layer-thumb--mask]="
+								editingMask() && activeLayerId() === layer.id
+							"
+							alt=""
+						/>
+
+						<div class="ce-layer-info">
+							@if (renamingLayerId() === layer.id) {
+								<input
+									class="ce-rename-input"
+									[value]="renameValue()"
+									(input)="renameValue.set($any($event.target).value)"
+									(keydown.enter)="confirmRename()"
+									(keydown.escape)="renamingLayerId.set(null)"
+									(blur)="confirmRename()"
+									(click)="$event.stopPropagation()"
+									autofocus
+								/>
+							} @else {
+								<span class="ce-layer-name">{{ layer.name }}</span>
+							}
+							<span class="ce-layer-meta">
+								{{ layer.type }}{{ layer.maskCanvas ? " + mask" : "" }}
+								{{ layer.locked ? "🔒" : "" }}
+							</span>
+						</div>
+
+						<div class="ce-layer-controls">
+							<button
+								class="ce-vis-btn"
+								(click)="toggleLayerVisibility(layer.id); $event.stopPropagation()"
+								[title]="layer.visible ? 'Hide' : 'Show'"
+							>
+								@if (layer.visible) {
+									<span>👁</span>
+								} @else {
+									<span style="opacity: 0.3">👁</span>
+								}
+							</button>
+						</div>
+					</div>
+				}
+			</div>
+
+			<!-- Canvas background color -->
+			<div class="ce-panel-footer">
+				<span class="ce-prop-label">Background</span>
+				<button
+					class="ce-bg-transparent-btn"
+					[class.ce-bg-transparent-btn--active]="backgroundColor() === 'transparent'"
+					(click)="backgroundColor.set('transparent'); composite()"
+					title="Transparent background"
+				>
+					<svg viewBox="0 0 16 16" width="14" height="14">
+						<rect x="0" y="0" width="8" height="8" fill="#ccc" />
+						<rect x="8" y="8" width="8" height="8" fill="#ccc" />
+						<rect x="8" y="0" width="8" height="8" fill="#fff" />
+						<rect x="0" y="8" width="8" height="8" fill="#fff" />
+					</svg>
+				</button>
+				<label
+					class="ce-color-swatch ce-color-swatch--sm"
+					[style.background]="
+						backgroundColor() === 'transparent' ? '#fff' : backgroundColor()
+					"
+					title="Solid background color"
+				>
+					<input
+						type="color"
+						[value]="
+							backgroundColor() === 'transparent' ? '#ffffff' : backgroundColor()
+						"
+						(input)="backgroundColor.set($any($event.target).value); composite()"
+					/>
+				</label>
+				<button class="ce-btn-xs" (click)="clearActiveLayer()">Clear Layer</button>
+			</div>
+		</aside>
+	</div>
+	<!-- /.ce-main -->
+
+	<!-- ──────────────── PROCESSING OVERLAY ──────────────── -->
+	@if (processingMessage()) {
+		<div class="ce-processing-overlay">
+			<div class="ce-processing-content">
+				<div class="ce-spinner"></div>
+				<div class="ce-processing-text">{{ processingMessage() }}</div>
+			</div>
+		</div>
+	}
+
+	<!-- ──────────────── BRUSH CURSOR OVERLAY ──────────────── -->
+	@if (showBrushCursor) {
+		<div class="ce-brush-cursor" [style]="brushCursorStyle"></div>
+	}
+
+	<!-- ──────────────── TEXT OVERLAY (fixed, outside canvas transform) ──────────────── -->
+	@if (textEditActive()) {
+		<div class="ce-text-overlay" [style]="textInputStyle">
+			<div class="ce-text-mode-badge">
+				{{ textEditingLayerId() ? "✎ Editing text" : "+ New text" }}
+			</div>
+			<textarea
+				#textInput
+				class="ce-text-input"
+				(input)="textEditValue.set($any($event.target).value)"
+				(keydown.enter)="$any($event).ctrlKey && confirmText()"
+				(keydown.escape)="cancelText()"
+				placeholder="Type here…"
+			></textarea>
+			<div class="ce-text-actions">
+				<button class="ce-btn-xs" (click)="confirmText()">
+					✓ Confirm <small>Ctrl+↵</small>
+				</button>
+				<button class="ce-btn-xs ce-btn-xs--ghost" (click)="cancelText()">
+					Cancel
+				</button>
+			</div>
+		</div>
+	}
+
+	<!-- ──────────────── CONTEXT MENU ──────────────── -->
+	@if (contextMenu()) {
+		<div
+			class="ce-context-menu"
+			[style.left.px]="contextMenu()!.x"
+			[style.top.px]="contextMenu()!.y"
+			(click)="$event.stopPropagation()"
+		>
+			@for (item of contextMenu()!.items; track $index) {
+				@if (item.separator) {
+					<hr class="ce-ctx-sep" />
+				} @else {
+					<button
+						class="ce-ctx-item"
+						[class.ce-ctx-item--disabled]="item.disabled"
+						(click)="!item.disabled && runContextAction(item.action)"
+					>
+						{{ item.label }}
+					</button>
+				}
+			}
+		</div>
+	}
+
+	<!-- ──────────────── RESIZE DIALOG ──────────────── -->
+	@if (showResizeDialog()) {
+		<div class="ce-dialog-backdrop" (click)="showResizeDialog.set(false)">
+			<div class="ce-dialog" (click)="$event.stopPropagation()">
+				<h3 class="ce-dialog-title">Resize Canvas</h3>
+				<div class="ce-dialog-presets">
+					@for (p of presetSizes; track p.label) {
+						<button class="ce-btn-xs" (click)="applyPreset(p.w, p.h)">
+							{{ p.label }}
+						</button>
+					}
+				</div>
+				<div class="ce-dialog-row">
+					<label class="ce-dialog-label">Width</label>
+					<input
+						type="number"
+						class="ce-dialog-input"
+						min="1"
+						max="8000"
+						[value]="resizeW()"
+						(change)="resizeW.set(+$any($event.target).value)"
+					/>
+					<span class="ce-dialog-unit">px</span>
+				</div>
+				<div class="ce-dialog-row">
+					<label class="ce-dialog-label">Height</label>
+					<input
+						type="number"
+						class="ce-dialog-input"
+						min="1"
+						max="8000"
+						[value]="resizeH()"
+						(change)="resizeH.set(+$any($event.target).value)"
+					/>
+					<span class="ce-dialog-unit">px</span>
+				</div>
+				<div class="ce-dialog-actions">
+					<button class="ce-btn-ghost" (click)="showResizeDialog.set(false)">
+						Cancel
+					</button>
+					<button
+						class="ce-btn-done"
+						[style.background]="accentColor"
+						(click)="resizeCanvas()"
+					>
+						Apply
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ──────────────── URL DIALOG ──────────────── -->
+	@if (showUrlDialog()) {
+		<div class="ce-dialog-backdrop" (click)="showUrlDialog.set(false)">
+			<div class="ce-dialog" (click)="$event.stopPropagation()">
+				<h3 class="ce-dialog-title">Image from URL</h3>
+				<p class="ce-dialog-note">
+					Image must allow CORS. Paste a direct image URL.
+				</p>
+				<input
+					type="url"
+					class="ce-dialog-input ce-dialog-input--full"
+					placeholder="https://example.com/image.png"
+					[value]="importUrl()"
+					(input)="importUrl.set($any($event.target).value)"
+					(keydown.enter)="importFromUrl()"
+				/>
+				<div class="ce-dialog-actions">
+					<button
+						class="ce-btn-ghost"
+						(click)="showUrlDialog.set(false); importUrl.set('')"
+					>
+						Cancel
+					</button>
+					<button
+						class="ce-btn-done"
+						[style.background]="accentColor"
+						(click)="importFromUrl()"
+					>
+						Import
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ──────────────── BACKGROUND REMOVAL DIALOG ──────────────── -->
+	@if (showBgRemovalDialog()) {
+		<div
+			class="ce-dialog-backdrop"
+			(click)="showBgRemovalDialog.set(false); bgRemovalLayerId.set(null)"
+		>
+			<div class="ce-dialog" (click)="$event.stopPropagation()">
+				<h3 class="ce-dialog-title">Remove Background</h3>
+				<p class="ce-dialog-note">
+					Choose the processing quality. Higher quality takes longer but produces
+					better results.
+				</p>
+				<div class="ce-bg-options">
+					<button
+						class="ce-bg-option"
+						(click)="executeBackgroundRemoval('isnet_quint8')"
+					>
+						<div class="ce-bg-option-label">Fast</div>
+						<div class="ce-bg-option-desc">Quick processing (~2-3 seconds)</div>
+						<div class="ce-bg-option-size">~10MB model</div>
+					</button>
+					<button
+						class="ce-bg-option"
+						(click)="executeBackgroundRemoval('isnet_fp16')"
+					>
+						<div class="ce-bg-option-label">Balanced</div>
+						<div class="ce-bg-option-desc">Good quality (~4-6 seconds)</div>
+						<div class="ce-bg-option-size">~35MB model</div>
+					</button>
+					<button
+						class="ce-bg-option ce-bg-option--recommended"
+						(click)="executeBackgroundRemoval('isnet')"
+					>
+						<div class="ce-bg-option-label">Best Quality</div>
+						<div class="ce-bg-option-desc">Highest accuracy (~8-10 seconds)</div>
+						<div class="ce-bg-option-size">~70MB model</div>
+						<div class="ce-bg-option-badge">Recommended</div>
+					</button>
+				</div>
+				<div class="ce-dialog-actions">
+					<button
+						class="ce-btn-ghost"
+						(click)="showBgRemovalDialog.set(false); bgRemovalLayerId.set(null)"
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ──────────────── WARP MODE UI ──────────────── -->
+	@if (isWarpMode()) {
+		<div class="ce-warp-ui">
+			<div class="ce-warp-hint">
+				<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+					<path
+						d="M2 2L14 2M14 2L14 14M14 14L2 14M2 14L2 2"
+						stroke="currentColor"
+						stroke-width="1.5"
+					/>
+					<circle cx="2" cy="2" r="2" fill="currentColor" />
+					<circle cx="14" cy="2" r="2" fill="currentColor" />
+					<circle cx="2" cy="14" r="2" fill="currentColor" />
+					<circle cx="14" cy="14" r="2" fill="currentColor" />
+				</svg>
+				<span>Drag corners to warp layer</span>
+			</div>
+			<div class="ce-warp-actions">
+				<button class="ce-btn-ghost" (click)="exitWarpMode(false)">Cancel</button>
+				<button
+					class="ce-btn-done"
+					[style.background]="accentColor"
+					(click)="exitWarpMode(true)"
+				>
+					Apply
+				</button>
+			</div>
+		</div>
+	}
+</div>

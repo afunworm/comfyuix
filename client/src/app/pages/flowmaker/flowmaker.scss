@@ -1,0 +1,451 @@
+// ====== LoRA Picker ======
+.lora-picker-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 340px;
+	overflow-y: auto;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	padding: 4px;
+}
+
+.lora-picker-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 8px;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	font-size: var(--text-sm);
+
+	&:hover {
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	input[type='checkbox'] {
+		flex-shrink: 0;
+		cursor: pointer;
+	}
+
+	span {
+		word-break: break-all;
+		line-height: 1.4;
+	}
+}
+
+// ====== Icon Legend ======
+.config-legend {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 10px 0 16px;
+	padding: 12px 14px;
+	background: rgba(122, 162, 255, 0.04);
+	border: 1px solid rgba(122, 162, 255, 0.12);
+	border-radius: var(--radius-sm);
+
+	&__row {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+
+		svg {
+			width: 14px;
+			height: 14px;
+			flex-shrink: 0;
+			margin-top: 2px;
+			color: var(--muted);
+		}
+
+		span {
+			font-size: var(--text-sm);
+			line-height: 1.5;
+			color: var(--muted);
+
+			strong {
+				color: var(--text);
+				font-weight: 600;
+			}
+		}
+	}
+}
+
+// ====== Right Panel: Config Groups ======
+.config-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+
+	&.is-active {
+		.config-group__heading {
+			&::before {
+				opacity: 1;
+			}
+			h2 {
+				color: var(--text);
+			}
+		}
+	}
+
+	// Group heading row: accent line + short label
+	&__heading {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 10px 0 4px;
+
+		&::before {
+			content: "";
+			width: 3px;
+			height: 1em;
+			background: var(--accent);
+			border-radius: 99px;
+			flex-shrink: 0;
+			opacity: 0.7;
+		}
+
+		h2 {
+			margin: 0;
+			font-size: var(--text-sm);
+			font-weight: 800;
+			letter-spacing: 0.6px;
+			text-transform: uppercase;
+			color: var(--muted);
+			white-space: nowrap;
+		}
+	}
+}
+
+// ====== Config Row (checkbox + name + eye + select) ======
+.config-row {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: rgba(0, 0, 0, 0.12);
+	transition: border-color 140ms ease;
+
+	&:has(.config-row__checkbox:checked) {
+		border-color: rgba(122, 162, 255, 0.4);
+		background: rgba(122, 162, 255, 0.06);
+		box-shadow: inset 3px 0 0 var(--accent);
+	}
+
+	// Top row: checkbox + name + eye icon + lock icon — all on one line
+	&__top {
+		display: grid;
+		grid-template-columns: auto 1fr auto auto;
+		align-items: center;
+		gap: 10px;
+		padding: 9px 10px;
+	}
+
+	// Hidden state: dim the whole row
+	&.is-hidden {
+		opacity: 0.38;
+		pointer-events: none; // optional: prevent interaction when hidden
+	}
+
+	// Custom checkbox (reuse option input styles)
+	&__checkbox {
+		appearance: none;
+		width: 14px;
+		height: 14px;
+		border-radius: 4px;
+		border: 1px solid rgba(151, 168, 188, 0.5);
+		background: rgba(0, 0, 0, 0.25);
+		display: inline-grid;
+		place-items: center;
+		margin: 0;
+		flex-shrink: 0;
+		cursor: pointer;
+		transition:
+			border-color 120ms ease,
+			background 120ms ease;
+
+		&::before {
+			content: "";
+			width: 8px;
+			height: 8px;
+			border-radius: 2px;
+			transform: scale(0);
+			transition: transform 120ms ease;
+			background: var(--accent);
+			box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.12);
+		}
+
+		&:checked {
+			border-color: rgba(122, 162, 255, 0.75);
+			background: rgba(122, 162, 255, 0.08);
+
+			&::before {
+				transform: scale(1);
+			}
+		}
+	}
+
+	&__name {
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--text);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		min-width: 0;
+	}
+
+	// Select wrapper — hidden by default, shown when checkbox is checked
+	&__select-wrap {
+		display: none;
+		padding: 0 10px 10px;
+
+		// CSS-only: show when sibling checkbox inside this row is checked
+	}
+}
+
+// :has() magic — show select when checkbox checked inside the same .config-row
+.config-row:has(.config-row__checkbox:checked) .config-row__select-wrap {
+	display: block;
+}
+
+// ── Value binding ─────────────────────────────────────────────────────────────
+.bind-container {
+	position: relative;
+}
+
+.bind-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.72rem;
+
+	svg {
+		flex-shrink: 0;
+		color: rgba(255, 255, 255, 0.3);
+	}
+
+	&__source {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: #7aa2ff;
+	}
+
+	&__empty {
+		flex: 1;
+		color: rgba(255, 255, 255, 0.28);
+	}
+
+	&__unbind {
+		flex-shrink: 0;
+		font-size: 0.62rem;
+		color: #f87171;
+		background: transparent;
+		border: 1px solid rgba(248, 113, 113, 0.3);
+		border-radius: 3px;
+		padding: 2px 6px;
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(248, 113, 113, 0.1);
+		}
+	}
+}
+
+.bind-btn {
+	flex-shrink: 0;
+	padding: 3px 8px;
+	font-size: 0.68rem;
+	color: rgba(255, 255, 255, 0.55);
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+	cursor: pointer;
+	transition:
+		color 0.15s,
+		border-color 0.15s;
+
+	&:hover {
+		color: rgba(255, 255, 255, 0.9);
+		border-color: rgba(255, 255, 255, 0.25);
+	}
+}
+
+.bind-popover {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 4px);
+	z-index: 200;
+	background: #1a1d24;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 6px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+	min-width: 180px;
+	max-width: 220px;
+	padding: 6px 0;
+
+	&__hint {
+		font-size: 0.62rem;
+		color: rgba(255, 255, 255, 0.38);
+		padding: 4px 10px 6px;
+		line-height: 1.4;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		margin-bottom: 4px;
+	}
+
+	&__group-label {
+		font-size: 0.58rem;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: rgba(255, 255, 255, 0.28);
+		padding: 6px 10px 2px;
+	}
+
+	&__item {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		width: 100%;
+		text-align: left;
+		padding: 5px 10px;
+		font-size: 0.72rem;
+		color: rgba(255, 255, 255, 0.78);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.06);
+			color: rgba(255, 255, 255, 1);
+		}
+	}
+
+	&__dim-tag {
+		font-size: 0.6rem;
+		font-weight: 600;
+		color: rgba(122, 162, 255, 0.7);
+		border: 1px solid rgba(122, 162, 255, 0.25);
+		border-radius: 3px;
+		padding: 0 3px;
+	}
+
+	&__empty {
+		font-size: 0.68rem;
+		color: rgba(255, 255, 255, 0.3);
+		padding: 6px 10px;
+		text-align: center;
+	}
+}
+
+// ── Auto-detection review row ──────────────────────────────────────────────
+.detect-row {
+	display: grid;
+	grid-template-columns: 20px auto 1fr auto auto;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border);
+	background: rgba(0, 0, 0, 0.12);
+	margin-bottom: 6px;
+
+	@media (max-width: 600px) {
+		grid-template-columns: 20px auto 1fr auto;
+
+		.detect-row__meta {
+			display: none;
+		}
+	}
+
+	&--required {
+		border-color: rgba(122, 162, 255, 0.35);
+	}
+
+	&__name {
+		font-size: 0.85rem;
+	}
+
+	&__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+		overflow: hidden;
+		text-align: right;
+	}
+
+	&__node-title {
+		font-size: 0.78rem;
+		font-weight: 700;
+		color: var(--text);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	&__path {
+		font-size: 0.68rem;
+		opacity: 0.4;
+		font-family: monospace;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	&__dismiss {
+		appearance: none;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		color: rgba(255, 255, 255, 0.2);
+		cursor: pointer;
+		font-size: 1rem;
+		line-height: 1;
+		padding: 2px 5px;
+		transition:
+			color 0.15s,
+			border-color 0.15s;
+
+		&:hover {
+			color: #f87171;
+			border-color: rgba(248, 113, 113, 0.35);
+		}
+	}
+}
+
+// ── Type tag badge shown next to each detected configurable ────────────────
+.detect-tag {
+	font-size: 0.58rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 2px 6px;
+	border-radius: 3px;
+	white-space: nowrap;
+
+	&--core {
+		background: rgba(122, 162, 255, 0.15);
+		color: #7aa2ff;
+	}
+
+	&--width,
+	&--height {
+		background: rgba(100, 200, 150, 0.15);
+		color: #64c896;
+	}
+
+	&--inputImage {
+		background: rgba(200, 150, 100, 0.15);
+		color: #c8966e;
+	}
+
+	&--text,
+	&--number {
+		background: rgba(180, 180, 180, 0.1);
+		color: rgba(255, 255, 255, 0.45);
+	}
+}

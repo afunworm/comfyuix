@@ -1,0 +1,98 @@
+import { All, Controller, Req, Res } from "@nestjs/common";
+import * as http from "http";
+import * as https from "https";
+import { DatabaseService } from "../database/database.service";
+import { TunnelService } from "../tunnel/tunnel.service";
+
+@Controller("proxy")
+export class ProxyController {
+	private readonly db;
+
+	constructor(
+		databaseService: DatabaseService,
+		private readonly tunnelService: TunnelService,
+	) {
+		this.db = databaseService.db;
+	}
+
+	@All(":bookId/*")
+	forward(@Req() req: any, @Res() res: any) {
+		const urlParts = (req.raw.url ?? "").split("/");
+		const bookId = urlParts[2];
+		const remainingPath = "/" + urlParts.slice(3).join("/");
+
+		// ── Tunnel path ──────────────────────────────────────────────────────────
+		if (this.tunnelService.hasTunnel(bookId)) {
+			const bodyBuffer = this.buildBodyBuffer(req.body);
+			this.tunnelService.proxyHttp(bookId, req.raw, res.raw, remainingPath, bodyBuffer);
+			return;
+		}
+
+		// ── Direct HTTP fallback ─────────────────────────────────────────────────
+		const book: any = this.db
+			.prepare("SELECT endpoint_base FROM book WHERE id = ?")
+			.get(bookId);
+		if (!book) {
+			res.raw.writeHead(404);
+			res.raw.end(JSON.stringify({ error: "Book not found" }));
+			return;
+		}
+
+		let endpointBase = book.endpoint_base;
+		if (!/^https?:\/\//.test(endpointBase)) {
+			endpointBase = `http://${endpointBase}`;
+		}
+
+		const targetUrl = new URL(remainingPath || "/", endpointBase);
+		const protocol = targetUrl.protocol === "https:" ? https : http;
+		const bodyBuffer = this.buildBodyBuffer(req.body);
+
+		const headers: any = {
+			...req.raw.headers,
+			host: targetUrl.host,
+		};
+		if (bodyBuffer) {
+			headers["content-length"] = bodyBuffer.length;
+			headers["content-type"] = "application/json";
+		}
+
+		const proxyReq = protocol.request(
+			{
+				hostname: targetUrl.hostname,
+				port: targetUrl.port || (targetUrl.protocol === "https:" ? 443 : 80),
+				path: targetUrl.pathname + targetUrl.search,
+				method: req.raw.method,
+				headers,
+			},
+			(proxyRes) => {
+				res.raw.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers as any);
+				proxyRes.pipe(res.raw);
+			},
+		);
+
+		proxyReq.on("error", (err) => {
+			console.error("[Proxy error]", err.message);
+			if (!res.raw.headersSent) res.raw.writeHead(502);
+			res.raw.end("Bad Gateway");
+		});
+
+		if (bodyBuffer) {
+			proxyReq.write(bodyBuffer);
+			proxyReq.end();
+		} else {
+			req.raw.pipe(proxyReq);
+		}
+	}
+
+	private buildBodyBuffer(body: any): Buffer | null {
+		if (body === undefined || body === null) return null;
+		if (Buffer.isBuffer(body)) return body;
+		if (
+			typeof body === "object" &&
+			typeof (body as any).pipe !== "function"
+		) {
+			return Buffer.from(JSON.stringify(body));
+		}
+		return null;
+	}
+}

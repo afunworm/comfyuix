@@ -1,0 +1,181 @@
+<!-- Tool options bar — visible only when a drawing tool is active -->
+@if (lp.activeTool() !== 'none') {
+  <div class="tool-options-bar">
+
+    <!-- Tool selection -->
+    <div class="tool-options-bar__group">
+      <button class="tool-options-bar__tool-btn" [class.tool-options-bar__tool-btn--active]="lp.activeTool() === 'brush'" (click)="lp.activeTool.set('brush')" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.58a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/><path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/><path d="M14.5 17.5 4.5 15"/></svg>
+        Brush
+      </button>
+      <button class="tool-options-bar__tool-btn" [class.tool-options-bar__tool-btn--active]="lp.activeTool() === 'eraser'" (click)="lp.activeTool.set('eraser')" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+        Eraser
+      </button>
+      <button class="tool-options-bar__tool-btn" [class.tool-options-bar__tool-btn--active]="lp.activeTool() === 'polygon'" (click)="lp.activeTool.set('polygon')" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>
+        Polygon
+      </button>
+    </div>
+
+    @if (lp.activeTool() === 'brush' || lp.activeTool() === 'eraser') {
+      <span class="tool-options-bar__sep"></span>
+
+      <!-- Shape toggle -->
+      <div class="tool-options-bar__group">
+        <label class="tool-options-bar__label">Shape</label>
+        <button class="tool-options-bar__shape-btn" [class.tool-options-bar__shape-btn--active]="lp.brushShape() === 'circle'" (click)="lp.brushShape.set('circle')" type="button" title="Circle brush">
+          <svg viewBox="0 0 14 14" fill="currentColor"><circle cx="7" cy="7" r="6"/></svg>
+        </button>
+        <button class="tool-options-bar__shape-btn" [class.tool-options-bar__shape-btn--active]="lp.brushShape() === 'square'" (click)="lp.brushShape.set('square')" type="button" title="Square brush">
+          <svg viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="12" height="12" rx="1"/></svg>
+        </button>
+      </div>
+
+      <span class="tool-options-bar__sep"></span>
+      <div class="tool-options-bar__group">
+        <label class="tool-options-bar__label">Size</label>
+        <input class="tool-options-bar__slider" type="range" min="2" max="200" [value]="lp.brushSize()" (input)="lp.setBrushSize($any($event.target).value)" />
+        <span class="tool-options-bar__val">{{ lp.brushSize() }}px</span>
+      </div>
+      <span class="tool-options-bar__sep"></span>
+      <div class="tool-options-bar__group">
+        <label class="tool-options-bar__label">Hardness</label>
+        <input class="tool-options-bar__slider" type="range" min="0" max="100" [value]="lp.brushHardness()" (input)="lp.setBrushHardness($any($event.target).value)" />
+        <span class="tool-options-bar__val">{{ lp.brushHardness() }}%</span>
+      </div>
+    }
+
+    @if (lp.activeTool() === 'polygon') {
+      <span class="tool-options-bar__sep"></span>
+      <span class="tool-options-bar__hint">
+        Click to place points · Click start or double-click to fill · Esc to cancel
+        @if (lp.polygonPoints().length > 0) {
+          <span class="tool-options-bar__hint-count">({{ lp.polygonPoints().length }} pts)</span>
+        }
+      </span>
+    }
+
+    <span class="tool-options-bar__sep"></span>
+    <button class="tool-options-bar__done-btn" type="button" (click)="lp.activeTool.set('none'); lp.cancelPolygon()">Done</button>
+  </div>
+}
+
+<!-- BRUSH CURSOR (circle or square) — hidden while space-panning -->
+@if (lp.brushCursorPos(); as pos) {
+  <div
+    class="brush-cursor"
+    [class.brush-cursor--eraser]="lp.activeTool() === 'eraser'"
+    [class.brush-cursor--square]="lp.brushShape() === 'square'"
+    [style.left.px]="pos.x"
+    [style.top.px]="pos.y"
+    [style.width.px]="lp.brushCursorRadius() * 2"
+    [style.height.px]="lp.brushCursorRadius() * 2"
+  ></div>
+}
+
+<!-- POLYGON OVERLAY — suspended while space-panning -->
+@if (lp.activeTool() === 'polygon' && lp.maskLayer() && !lp.spacePanning()) {
+  @let pts = lp.polygonPoints();
+  @let preview = lp.polygonPreviewPos();
+  <svg
+    class="polygon-overlay"
+    (click)="lp.addPolygonPoint($event)"
+  >
+    <!-- Filled preview area -->
+    @if (pts.length >= 3) {
+      <polygon [attr.points]="polygonPointsAttr()" class="polygon-overlay__fill" />
+    }
+
+    <!-- Edges between placed points -->
+    @for (pt of pts; track $index; let i = $index) {
+      @if (i > 0) {
+        <line
+          [attr.x1]="pts[i - 1].sx" [attr.y1]="pts[i - 1].sy"
+          [attr.x2]="pt.sx"         [attr.y2]="pt.sy"
+          class="polygon-overlay__line"
+        />
+      }
+    }
+
+    <!-- Live preview line from last point to cursor -->
+    @if (pts.length > 0 && preview) {
+      <line
+        [attr.x1]="pts[pts.length - 1].sx" [attr.y1]="pts[pts.length - 1].sy"
+        [attr.x2]="preview.x"              [attr.y2]="preview.y"
+        class="polygon-overlay__preview-line"
+      />
+    }
+
+    <!-- Snap zone ring on first point (only once ≥3 points placed) -->
+    @if (pts.length >= 3) {
+      <circle [attr.cx]="pts[0].sx" [attr.cy]="pts[0].sy" r="12" class="polygon-overlay__snap-zone" />
+    }
+
+    <!-- Anchor dots -->
+    @for (pt of pts; track $index; let first = $first) {
+      <circle
+        [attr.cx]="pt.sx" [attr.cy]="pt.sy"
+        [attr.r]="first ? 6 : 4"
+        [class]="first ? 'polygon-overlay__dot polygon-overlay__dot--first' : 'polygon-overlay__dot'"
+      />
+    }
+  </svg>
+}
+
+<!-- LAYER PANEL -->
+@if (lp.layerPanelOpen()) {
+  <div class="layer-panel" [class.layer-panel--dragging]="lp.layerPanelDragging()"
+    [style.right.px]="lp.layerPanelPos().x" [style.top.px]="lp.layerPanelPos().y">
+    <div class="layer-panel__header" (pointerdown)="lp.startLayerPanelDrag($event)">
+      <span>Layers</span>
+      <button class="layer-panel__close" type="button" (click)="$event.stopPropagation(); lp.layerPanelOpen.set(false)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="layer-panel__list">
+      <!-- Canvas (base layer, always present) -->
+      <div class="layer-panel__group" [class.layer-panel__group--has-mask]="!!lp.maskLayer()">
+        <div class="layer-panel__row layer-panel__row--locked" (contextmenu)="lp.openLayerRowMenu($event, true)">
+          <span class="layer-panel__eye layer-panel__eye--placeholder"></span>
+          <svg class="layer-panel__type-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="layer-panel__name">Canvas</span>
+          <svg class="layer-panel__lock" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="11" height="11"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <!-- Mask attached to Canvas -->
+        @if (lp.maskLayer(); as layer) {
+          <div class="layer-panel__mask-child">
+            <div class="layer-panel__connector"></div>
+            <div
+              class="layer-panel__row"
+              [class.layer-panel__row--active]="lp.activeTool() !== 'none'"
+              (click)="lp.activeTool.set(lp.activeTool() === 'none' ? 'brush' : 'none')"
+              (contextmenu)="lp.openLayerRowMenu($event, false)"
+            >
+              <button class="layer-panel__eye" type="button" [class.layer-panel__eye--hidden]="!layer.visible" (click)="$event.stopPropagation(); lp.toggleMaskVisibility()" title="{{ layer.visible ? 'Hide mask' : 'Show mask' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                  @if (layer.visible) {
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  } @else {
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  }
+                </svg>
+              </button>
+              <svg class="layer-panel__type-icon layer-panel__type-icon--mask" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span class="layer-panel__name">Mask</span>
+              <button class="layer-panel__remove" type="button" (click)="$event.stopPropagation(); lp.removeMaskLayer()" title="Remove mask layer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+    @if (!lp.maskLayer()) {
+      <button class="layer-panel__add-btn" type="button" (click)="lp.addMaskLayer()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Mask Layer
+      </button>
+    }
+  </div>
+}

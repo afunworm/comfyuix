@@ -1,0 +1,354 @@
+.qf-groups {
+	display: grid;
+	gap: 10px;
+	margin-top: 16px;
+}
+
+.qf-group {
+	border: 1px solid var(--border);
+	border-radius: var(--radius, 8px);
+	overflow: hidden;
+	cursor: grab;
+
+	&--dragging {
+		opacity: 0.4;
+	}
+
+	&--drag-over {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 1px var(--accent);
+	}
+
+	&__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 12px;
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	&__toggle {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex: 1;
+		min-width: 0;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		color: inherit;
+		text-align: left;
+	}
+
+	&__chevron {
+		width: 14px;
+		height: 14px;
+		flex-shrink: 0;
+		transition: transform 0.15s;
+		transform: rotate(-90deg);
+		color: rgba(255, 255, 255, 0.4);
+
+		&--open {
+			transform: rotate(0deg);
+		}
+	}
+
+	&__name {
+		font-size: 0.9rem;
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__count {
+		font-size: 0.75rem;
+		color: rgba(255, 255, 255, 0.35);
+		flex-shrink: 0;
+	}
+
+	&__rename-input {
+		flex: 1;
+		max-width: 300px;
+		padding: 3px 8px;
+		font-size: 0.88rem;
+	}
+
+	&__actions {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		flex-shrink: 0;
+	}
+
+	&__body {
+		padding: 8px 12px 12px;
+		border-top: 1px solid var(--border);
+		display: grid;
+		gap: 6px;
+	}
+}
+
+.qf-flow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 10px;
+	border: 1px solid var(--border);
+	border-top: 1px solid transparent;
+	border-radius: var(--radius-sm, 4px);
+	background: rgba(0, 0, 0, 0.12);
+	cursor: pointer;
+
+	&--dragging {
+		opacity: 0.35;
+	}
+
+	&--drag-over {
+		border-top-color: var(--accent, #7aa2ff);
+	}
+
+	&__drag-handle {
+		width: 12px;
+		height: 12px;
+		flex-shrink: 0;
+		color: rgba(255, 255, 255, 0.2);
+		cursor: grab;
+
+		&:active {
+			cursor: grabbing;
+		}
+	}
+
+	&__name {
+		flex: 1;
+		font-size: 0.88rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__node-id {
+		font-size: 0.72rem;
+		color: rgba(255, 255, 255, 0.3);
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-family: monospace;
+
+		@media (max-width: 540px) {
+			display: none;
+		}
+	}
+
+	&__actions {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		flex-shrink: 0;
+	}
+}
+
+.qf-flow-form {
+	display: grid;
+	gap: 12px;
+	padding: 12px;
+	border: 1px solid rgba(122, 162, 255, 0.2);
+	border-radius: var(--radius-sm, 4px);
+	background: rgba(122, 162, 255, 0.04);
+
+	&__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		cursor: pointer;
+		margin: -4px -4px 0;
+		padding: 4px;
+		border-radius: 4px;
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.04);
+		}
+	}
+
+	&__header-name {
+		font-size: 0.88rem;
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__header-chevron {
+		width: 14px;
+		height: 14px;
+		flex-shrink: 0;
+		color: rgba(255, 255, 255, 0.4);
+	}
+}
+
+.qf-textarea {
+	min-height: 140px;
+	font-family: monospace;
+	font-size: 0.78rem;
+	resize: vertical;
+}
+
+.qf-prompt-textarea {
+	min-height: 80px;
+	font-family: inherit;
+	font-size: 0.85rem;
+	margin-top: 6px;
+}
+
+.qf-hint {
+	margin: 4px 0 0;
+	font-size: 0.75rem;
+	color: rgba(255, 255, 255, 0.35);
+}
+
+.qf-optional {
+	font-size: 0.72rem;
+	font-weight: 400;
+	color: rgba(255, 255, 255, 0.35);
+}
+
+.qf-error {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--danger);
+}
+
+.qf-empty {
+	margin: 0;
+	font-size: 0.82rem;
+	color: rgba(255, 255, 255, 0.3);
+	padding: 4px 0;
+}
+
+
+
+
+// ── Ask On Run ──────────────────────────────────────────────────────────────
+
+.qf-ask-section {
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm, 4px);
+	overflow: hidden;
+
+	&__toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		width: 100%;
+		background: rgba(255, 255, 255, 0.02);
+		border: none;
+		padding: 8px 10px;
+		cursor: pointer;
+		color: inherit;
+		font-size: 0.82rem;
+		opacity: 0.7;
+		text-align: left;
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.05);
+			opacity: 1;
+		}
+	}
+
+	&__chevron {
+		width: 14px;
+		height: 14px;
+		flex-shrink: 0;
+		transition: transform 0.15s;
+		transform: rotate(-90deg);
+
+		&--open {
+			transform: rotate(0deg);
+		}
+	}
+
+	&__body {
+		padding: 10px;
+		border-top: 1px solid var(--border);
+		display: grid;
+		gap: 8px;
+	}
+}
+
+.qf-ask-param {
+	display: grid;
+	gap: 6px;
+	padding: 8px;
+	background: rgba(0, 0, 0, 0.1);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm, 4px);
+
+	&__row {
+		display: flex;
+		gap: 6px;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	&__field-select {
+		flex: 1;
+		min-width: 140px;
+	}
+
+	&__type-select {
+		width: 90px;
+		flex-shrink: 0;
+	}
+
+	&__default {
+		width: 90px;
+		flex-shrink: 0;
+	}
+}
+
+// ── Shared ─────────────────────────────────────────────────────────────────
+
+.qf-field-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+
+	.label {
+		margin-bottom: 0;
+	}
+}
+
+.qf-upload-btn {
+	svg {
+		width: 14px;
+		height: 14px;
+	}
+}
+
+.qf-add-flow-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 10px;
+	background: none;
+	border: 1px dashed rgba(255, 255, 255, 0.15);
+	border-radius: var(--radius-sm, 4px);
+	color: rgba(255, 255, 255, 0.4);
+	font-size: 0.8rem;
+	cursor: pointer;
+	width: 100%;
+	justify-content: center;
+	transition: border-color 0.15s, color 0.15s;
+
+	&:hover {
+		border-color: rgba(255, 255, 255, 0.3);
+		color: rgba(255, 255, 255, 0.7);
+	}
+}

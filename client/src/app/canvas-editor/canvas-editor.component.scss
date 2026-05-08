@@ -1,0 +1,1360 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// Canvas Editor — Dark Theme
+// ──────────────────────────────────────────────────────────────────────────────
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap");
+
+:host {
+	display: contents;
+}
+
+// ── Tokens ───────────────────────────────────────────────────────────────────
+$bg-base: #0d0d0f;
+$bg-surface: #141417;
+$bg-elevated: #1c1c21;
+$bg-hover: #222228;
+$border: #2a2a32;
+$border-light: #353540;
+$text-primary: #e8e8ee;
+$text-muted: #7a7a8c;
+$text-dim: #4a4a5a;
+$accent: var(--ce-accent, #7c3aed);
+$font-ui: "DM Sans", system-ui, sans-serif;
+$font-mono: "JetBrains Mono", monospace;
+$radius: 6px;
+$radius-sm: 4px;
+
+// ── Overlay ────────────────────────────────────────────────────────────────
+.ce-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	display: none;
+	flex-direction: column;
+	background: $bg-base;
+	font-family: $font-ui;
+	color: $text-primary;
+	font-size: 13px;
+
+	&.ce-visible {
+		display: flex;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+}
+
+// ── Header ────────────────────────────────────────────────────────────────
+.ce-header {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 0 16px;
+	height: 48px;
+	background: $bg-surface;
+	border-bottom: 1px solid $border;
+	flex-shrink: 0;
+	user-select: none;
+}
+
+.ce-brand {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 140px;
+}
+
+.ce-brand-logo {
+	height: 22px;
+	width: auto;
+	object-fit: contain;
+}
+
+.ce-brand-name {
+	font-family: $font-mono;
+	font-size: 12px;
+	font-weight: 500;
+	color: $text-muted;
+	letter-spacing: 0.06em;
+	white-space: nowrap;
+}
+
+.ce-canvas-info {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.ce-dim-badge {
+	font-family: $font-mono;
+	font-size: 11px;
+	color: $text-muted;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	padding: 2px 8px;
+	border-radius: 100px;
+	letter-spacing: 0.03em;
+}
+
+.ce-layer-menu {
+	display: flex;
+	align-items: center;
+	margin-left: 16px;
+}
+
+.ce-menu-btn {
+	appearance: none;
+	background: transparent;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	cursor: pointer;
+	font-family: $font-ui;
+	font-size: 12px;
+	font-weight: 500;
+	padding: 4px 12px;
+	transition:
+		background 0.15s,
+		border-color 0.15s;
+
+	&:hover {
+		background: $bg-hover;
+		border-color: $border-light;
+	}
+}
+
+.ce-zoom-controls {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: auto;
+}
+
+.ce-zoom-label {
+	font-family: $font-mono;
+	font-size: 11px;
+	color: $text-muted;
+	min-width: 44px;
+	text-align: center;
+	cursor: pointer;
+	&:hover {
+		color: $text-primary;
+	}
+}
+
+.ce-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: 12px;
+}
+
+// ── Buttons ────────────────────────────────────────────────────────────────
+.ce-icon-btn {
+	appearance: none;
+	background: transparent;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-muted;
+	cursor: pointer;
+	font-size: 14px;
+	height: 26px;
+	width: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition:
+		background 0.15s,
+		color 0.15s,
+		border-color 0.15s;
+
+	&:hover {
+		background: $bg-hover;
+		color: $text-primary;
+		border-color: $border-light;
+	}
+	&:active {
+		opacity: 0.7;
+	}
+}
+
+.ce-btn-ghost {
+	appearance: none;
+	background: transparent;
+	border: 1px solid $border;
+	border-radius: $radius;
+	color: $text-muted;
+	cursor: pointer;
+	font-family: $font-ui;
+	font-size: 12px;
+	padding: 5px 14px;
+	transition:
+		background 0.15s,
+		color 0.15s;
+
+	&:hover {
+		background: $bg-hover;
+		color: $text-primary;
+	}
+}
+
+.ce-btn-done {
+	appearance: none;
+	border: none;
+	border-radius: $radius;
+	color: #fff;
+	cursor: pointer;
+	font-family: $font-ui;
+	font-size: 12px;
+	font-weight: 500;
+	padding: 5px 18px;
+	transition:
+		filter 0.15s,
+		opacity 0.15s;
+
+	&:hover {
+		filter: brightness(1.15);
+	}
+	&:active {
+		filter: brightness(0.9);
+	}
+	&:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+		filter: none;
+	}
+}
+
+.ce-btn-xs {
+	appearance: none;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-muted;
+	cursor: pointer;
+	font-family: $font-ui;
+	font-size: 11px;
+	padding: 2px 8px;
+	transition:
+		background 0.15s,
+		color 0.15s;
+	white-space: nowrap;
+
+	&:hover {
+		background: $bg-hover;
+		color: $text-primary;
+	}
+	&--ghost {
+		background: transparent;
+	}
+	&--active {
+		background: rgba(124, 58, 237, 0.2);
+		border-color: rgba(124, 58, 237, 0.5);
+		color: #a78bfa;
+	}
+}
+
+// ── Tool options bar (top, horizontal) ──────────────────────────────────────
+.ce-options-bar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 14px;
+	height: 40px;
+	background: $bg-surface;
+	border-bottom: 1px solid $border;
+	flex-shrink: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+
+	&::-webkit-scrollbar {
+		height: 3px;
+	}
+	&::-webkit-scrollbar-thumb {
+		background: $border;
+		border-radius: 2px;
+	}
+}
+
+.ce-opt-sep {
+	width: 1px;
+	height: 20px;
+	background: $border;
+	flex-shrink: 0;
+	margin: 0 2px;
+}
+
+.ce-opt-label {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-dim;
+	white-space: nowrap;
+	user-select: none;
+}
+
+.ce-opt-hint {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-dim;
+	white-space: nowrap;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	border-radius: 100px;
+	padding: 1px 8px;
+}
+
+.ce-opt-number {
+	appearance: none;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	font-family: $font-mono;
+	font-size: 11px;
+	padding: 2px 5px;
+	width: 52px;
+	text-align: center;
+	outline: none;
+	transition: border-color 0.15s;
+
+	&:focus {
+		border-color: rgba(124, 58, 237, 0.6);
+	}
+	&::-webkit-inner-spin-button,
+	&::-webkit-outer-spin-button {
+		opacity: 0.4;
+	}
+	&--wide {
+		width: 64px;
+	}
+}
+
+.ce-opt-unit {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-dim;
+	margin-left: -2px;
+}
+
+.ce-opt-range {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 120px;
+	height: 3px;
+	background: $border;
+	border-radius: 2px;
+	outline: none;
+	cursor: pointer;
+	flex-shrink: 0;
+
+	&::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: $text-muted;
+		cursor: pointer;
+		border: 2px solid $bg-surface;
+		transition: background 0.15s;
+	}
+	&:hover::-webkit-slider-thumb {
+		background: $text-primary;
+	}
+}
+
+.ce-opt-color {
+	display: block;
+	width: 24px;
+	height: 24px;
+	border-radius: $radius-sm;
+	border: 2px solid $border-light;
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	flex-shrink: 0;
+	transition: border-color 0.15s;
+
+	&:hover {
+		border-color: $text-muted;
+	}
+
+	input[type="color"] {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		cursor: pointer;
+		width: 100%;
+		height: 100%;
+	}
+}
+
+.ce-opt-btn {
+	appearance: none;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: $radius-sm;
+	color: $text-muted;
+	cursor: pointer;
+	font-size: 13px;
+	height: 26px;
+	min-width: 26px;
+	padding: 0 5px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition:
+		background 0.15s,
+		color 0.15s,
+		border-color 0.15s;
+	flex-shrink: 0;
+
+	svg {
+		width: 15px;
+		height: 15px;
+	}
+	u,
+	s {
+		text-decoration: inherit;
+	} // show decoration on the letter itself
+
+	&:hover {
+		background: $bg-hover;
+		color: $text-primary;
+	}
+	&--active {
+		background: rgba(124, 58, 237, 0.2);
+		border-color: rgba(124, 58, 237, 0.5);
+		color: #a78bfa;
+	}
+	&--u u {
+		text-decoration: underline;
+	}
+	&--s s {
+		text-decoration: line-through;
+	}
+}
+
+.ce-opt-select {
+	appearance: none;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	cursor: pointer;
+	font-family: $font-ui;
+	font-size: 11px;
+	padding: 2px 6px;
+	outline: none;
+	max-width: 130px;
+
+	&:hover {
+		border-color: $border-light;
+	}
+}
+
+// ── Main layout ────────────────────────────────────────────────────────────
+.ce-main {
+	display: flex;
+	flex: 1;
+	overflow: hidden;
+}
+
+// ── Left toolbar ────────────────────────────────────────────────────────────
+.ce-toolbar {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	width: 48px;
+	background: $bg-surface;
+	border-right: 1px solid $border;
+	padding: 8px 4px;
+	flex-shrink: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.ce-tool {
+	appearance: none;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: $radius;
+	color: $text-muted;
+	cursor: pointer;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	transition:
+		background 0.15s,
+		color 0.15s,
+		border-color 0.15s;
+
+	svg {
+		width: 18px;
+		height: 18px;
+	}
+
+	&:hover {
+		background: $bg-hover;
+		color: $text-primary;
+	}
+
+	&--active {
+		background: rgba(124, 58, 237, 0.18);
+		border-color: rgba(124, 58, 237, 0.5);
+		color: #a78bfa;
+	}
+}
+
+.ce-tool-divider {
+	width: 28px;
+	height: 1px;
+	background: $border;
+	margin: 4px 0;
+	flex-shrink: 0;
+}
+
+.ce-tool-section {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	width: 100%;
+	padding: 0 4px;
+}
+
+.ce-tool-label {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-dim;
+	white-space: nowrap;
+}
+
+.ce-range {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 100%;
+	height: 3px;
+	background: $border;
+	border-radius: 2px;
+	outline: none;
+	cursor: pointer;
+
+	&::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: $text-muted;
+		cursor: pointer;
+		border: 2px solid $bg-surface;
+		transition: background 0.15s;
+	}
+	&:hover::-webkit-slider-thumb {
+		background: $text-primary;
+	}
+	&--sm {
+		height: 3px;
+	}
+}
+
+.ce-color-swatch-wrap {
+	margin-top: 4px;
+}
+
+.ce-bg-transparent-btn {
+	appearance: none;
+	background: $bg-elevated;
+	border: 1.5px solid $border;
+	border-radius: $radius-sm;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 2px;
+	flex-shrink: 0;
+	transition: border-color 0.15s;
+
+	&:hover {
+		border-color: $border-light;
+	}
+	&--active {
+		border-color: $accent;
+		box-shadow: 0 0 0 1px $accent;
+	}
+}
+
+.ce-color-swatch {
+	display: block;
+	width: 28px;
+	height: 28px;
+	border-radius: $radius-sm;
+	border: 2px solid $border-light;
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	transition: border-color 0.15s;
+
+	&:hover {
+		border-color: $text-muted;
+	}
+
+	input[type="color"] {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		cursor: pointer;
+		width: 100%;
+		height: 100%;
+	}
+
+	&--sm {
+		width: 20px;
+		height: 20px;
+		border-radius: 3px;
+	}
+}
+
+// ── Canvas workspace ────────────────────────────────────────────────────────
+.ce-workspace {
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+	background: repeating-conic-gradient(#1a1a20 0% 25%, #121216 0% 50%) 0 0 / 24px
+		24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ce-canvas-stage {
+	position: relative;
+	transform-origin: center center;
+	will-change: transform;
+	display: inline-block;
+	line-height: 0;
+
+	box-shadow:
+		0 0 0 1px rgba(255, 255, 255, 0.06),
+		0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.ce-display-canvas {
+	display: block;
+	position: relative;
+	z-index: 1;
+}
+
+.ce-interaction-canvas {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+}
+
+// ── Processing overlay ────────────────────────────────────────────────────
+.ce-processing-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.75);
+	backdrop-filter: blur(4px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10003;
+	animation: fadeIn 0.2s ease;
+}
+
+.ce-processing-content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+}
+
+.ce-processing-text {
+	font-family: $font-ui;
+	font-size: 14px;
+	font-weight: 500;
+	color: #fff;
+	text-align: center;
+}
+
+.ce-spinner {
+	width: 40px;
+	height: 40px;
+	border: 3px solid rgba(255, 255, 255, 0.2);
+	border-top-color: #fff;
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+// ── Brush cursor overlay ─────────────────────────────────────────────────
+.ce-brush-cursor {
+	// Positioned, sized, and colored entirely via inline [style] from component.
+	// This class just ensures transitions feel smooth.
+	transition:
+		width 0.06s,
+		height 0.06s,
+		border-color 0.1s,
+		background 0.1s;
+	will-change: transform;
+}
+
+// ── Inline text editor ────────────────────────────────────────────────────
+.ce-text-overlay {
+	// position: fixed injected by inline [style] from component
+	transform-origin: top left;
+	filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.7));
+	pointer-events: auto;
+	z-index: 10001;
+}
+
+.ce-text-mode-badge {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: rgba(100, 160, 255, 0.85);
+	background: rgba(13, 13, 15, 0.7);
+	border: 1px solid rgba(100, 160, 255, 0.3);
+	border-radius: 3px;
+	padding: 2px 7px;
+	margin-bottom: 4px;
+	display: inline-block;
+	white-space: nowrap;
+	pointer-events: none;
+	user-select: none;
+}
+
+.ce-text-input {
+	display: block;
+	background: rgba(13, 13, 15, 0.78);
+	backdrop-filter: blur(4px);
+	border: 1.5px dashed rgba(100, 160, 255, 0.75);
+	border-radius: 3px;
+	color: #e8e8ee;
+	font: inherit;
+	outline: none;
+	resize: both;
+	min-width: 140px;
+	min-height: 44px;
+	padding: 6px 8px;
+	white-space: pre;
+	word-break: keep-all;
+	caret-color: #7dd3fc;
+	pointer-events: auto;
+	position: relative;
+	z-index: 1;
+}
+
+.ce-text-actions {
+	display: flex;
+	gap: 5px;
+	margin-top: 5px;
+	pointer-events: auto;
+
+	.ce-btn-xs {
+		appearance: none;
+		background: #1c1c21;
+		border: 1px solid #353540;
+		border-radius: 4px;
+		color: #e8e8ee;
+		cursor: pointer;
+		font-size: 11px;
+		padding: 4px 12px;
+		pointer-events: auto;
+
+		&:hover {
+			background: #222228;
+		}
+		small {
+			color: #4a4a5a;
+			margin-left: 4px;
+			font-size: 10px;
+		}
+	}
+}
+
+// ── Layers panel ────────────────────────────────────────────────────────────
+.ce-layers-panel {
+	width: 240px;
+	flex-shrink: 0;
+	background: $bg-surface;
+	border-left: 1px solid $border;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.ce-panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 10px;
+	height: 36px;
+	border-bottom: 1px solid $border;
+	flex-shrink: 0;
+}
+
+.ce-panel-title {
+	font-family: $font-mono;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: $text-dim;
+}
+
+.ce-panel-sub-title {
+	font-family: $font-mono;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: $text-dim;
+	padding: 4px 10px 2px;
+}
+
+.ce-panel-actions {
+	display: flex;
+	gap: 3px;
+}
+
+// Active layer quick props
+.ce-layer-props,
+.ce-text-props {
+	padding: 8px 10px;
+	border-bottom: 1px solid $border;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.ce-prop-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.ce-prop-label {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-dim;
+	min-width: 40px;
+}
+
+.ce-prop-value {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-muted;
+	min-width: 28px;
+	text-align: right;
+}
+
+.ce-select {
+	appearance: none;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	cursor: pointer;
+	font-family: $font-ui;
+	font-size: 11px;
+	padding: 2px 6px;
+	flex: 1;
+	outline: none;
+
+	&:hover {
+		border-color: $border-light;
+	}
+	&--sm {
+		font-size: 10px;
+		padding: 1px 4px;
+	}
+}
+
+.ce-number-input {
+	appearance: none;
+	background: $bg-elevated;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	font-family: $font-mono;
+	font-size: 11px;
+	padding: 2px 6px;
+	width: 60px;
+	outline: none;
+
+	&:hover {
+		border-color: $border-light;
+	}
+	&:focus {
+		border-color: rgba(124, 58, 237, 0.6);
+	}
+}
+
+// Layers list
+.ce-layers-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 4px 0;
+
+	&::-webkit-scrollbar {
+		width: 4px;
+	}
+	&::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		background: $border;
+		border-radius: 2px;
+	}
+}
+
+.ce-layer-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 8px;
+	cursor: pointer;
+	border: 1px solid transparent;
+	border-radius: $radius-sm;
+	margin: 1px 4px;
+	transition:
+		background 0.1s,
+		border-color 0.1s;
+	user-select: none;
+
+	&:hover {
+		background: $bg-hover;
+	}
+
+	&--active {
+		background: $bg-elevated;
+		border-color: $border-light;
+	}
+}
+
+.ce-layer-drag-handle {
+	font-size: 10px;
+	color: $text-dim;
+	cursor: grab;
+	letter-spacing: -2px;
+	flex-shrink: 0;
+}
+
+.ce-layer-thumb {
+	width: 32px;
+	height: 32px;
+	border-radius: 3px;
+	border: 1px solid $border;
+	object-fit: cover;
+	background: repeating-conic-gradient(#2a2a30 0% 25%, #1e1e24 0% 50%) 0 0 / 8px
+		8px;
+	flex-shrink: 0;
+
+	&--mask {
+		outline: 2px solid rgba(100, 160, 255, 0.7);
+		outline-offset: 1px;
+	}
+}
+
+.ce-layer-info {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.ce-layer-name {
+	font-size: 12px;
+	color: $text-primary;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.ce-layer-meta {
+	font-family: $font-mono;
+	font-size: 9px;
+	color: $text-dim;
+}
+
+.ce-rename-input {
+	background: $bg-elevated;
+	border: 1px solid rgba(124, 58, 237, 0.6);
+	border-radius: 3px;
+	color: $text-primary;
+	font-family: $font-ui;
+	font-size: 12px;
+	outline: none;
+	padding: 1px 4px;
+	width: 100%;
+}
+
+.ce-layer-controls {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.ce-vis-btn {
+	appearance: none;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 2px;
+	opacity: 0.5;
+	transition: opacity 0.15s;
+
+	&:hover {
+		opacity: 1;
+	}
+}
+
+.ce-panel-footer {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border-top: 1px solid $border;
+	flex-shrink: 0;
+	background: $bg-surface;
+}
+
+// ── Context menu ────────────────────────────────────────────────────────────
+.ce-context-menu {
+	position: fixed;
+	z-index: 10001;
+	background: $bg-elevated;
+	border: 1px solid $border-light;
+	border-radius: $radius;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+	padding: 4px;
+	min-width: 160px;
+	animation: ce-pop 0.1s ease;
+}
+
+@keyframes ce-pop {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.ce-ctx-item {
+	appearance: none;
+	background: transparent;
+	border: none;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	cursor: pointer;
+	display: block;
+	font-family: $font-ui;
+	font-size: 12px;
+	padding: 5px 10px;
+	text-align: left;
+	width: 100%;
+	transition: background 0.1s;
+
+	&:hover {
+		background: $bg-hover;
+	}
+
+	&--disabled {
+		color: $text-dim;
+		cursor: default;
+		&:hover {
+			background: transparent;
+		}
+	}
+}
+
+.ce-ctx-sep {
+	border: none;
+	border-top: 1px solid $border;
+	margin: 3px 4px;
+}
+
+// ── Dialogs ────────────────────────────────────────────────────────────────
+.ce-dialog-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 10002;
+	background: rgba(0, 0, 0, 0.7);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(4px);
+	animation: ce-fade 0.15s ease;
+}
+
+@keyframes ce-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.ce-dialog {
+	background: $bg-elevated;
+	border: 1px solid $border-light;
+	border-radius: $radius + 2px;
+	box-shadow: 0 16px 60px rgba(0, 0, 0, 0.7);
+	padding: 24px;
+	width: 340px;
+	animation: ce-slide 0.15s ease;
+}
+
+@keyframes ce-slide {
+	from {
+		transform: translateY(-8px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+.ce-dialog-title {
+	font-family: $font-mono;
+	font-size: 13px;
+	font-weight: 500;
+	color: $text-primary;
+	margin: 0 0 16px;
+	letter-spacing: 0.02em;
+}
+
+.ce-dialog-note {
+	font-size: 11px;
+	color: $text-muted;
+	margin: -8px 0 12px;
+	line-height: 1.5;
+}
+
+.ce-dialog-presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 14px;
+}
+
+.ce-dialog-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.ce-dialog-label {
+	font-family: $font-mono;
+	font-size: 11px;
+	color: $text-muted;
+	min-width: 48px;
+}
+
+.ce-dialog-unit {
+	font-family: $font-mono;
+	font-size: 11px;
+	color: $text-dim;
+}
+
+.ce-dialog-input {
+	appearance: none;
+	background: $bg-surface;
+	border: 1px solid $border;
+	border-radius: $radius-sm;
+	color: $text-primary;
+	font-family: $font-mono;
+	font-size: 12px;
+	padding: 5px 8px;
+	width: 90px;
+	outline: none;
+	transition: border-color 0.15s;
+
+	&:focus {
+		border-color: rgba(124, 58, 237, 0.7);
+	}
+
+	&--full {
+		width: 100%;
+		font-size: 11px;
+		margin-bottom: 14px;
+	}
+}
+
+.ce-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.ce-bg-options {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-top: 16px;
+}
+
+.ce-bg-option {
+	appearance: none;
+	background: $bg-elevated;
+	border: 2px solid $border;
+	border-radius: $radius;
+	cursor: pointer;
+	padding: 14px 16px;
+	text-align: left;
+	transition:
+		border-color 0.15s,
+		background 0.15s,
+		transform 0.1s;
+	position: relative;
+
+	&:hover {
+		background: $bg-hover;
+		border-color: $border-light;
+		transform: translateY(-1px);
+	}
+
+	&:active {
+		transform: translateY(0);
+	}
+
+	&--recommended {
+		border-color: rgba(124, 58, 237, 0.5);
+		background: rgba(124, 58, 237, 0.05);
+
+		&:hover {
+			border-color: rgba(124, 58, 237, 0.7);
+			background: rgba(124, 58, 237, 0.1);
+		}
+	}
+}
+
+.ce-bg-option-label {
+	font-family: $font-ui;
+	font-size: 15px;
+	font-weight: 600;
+	color: $text-primary;
+	margin-bottom: 4px;
+}
+
+.ce-bg-option-desc {
+	font-family: $font-ui;
+	font-size: 12px;
+	color: $text-muted;
+	margin-bottom: 2px;
+}
+
+.ce-bg-option-size {
+	font-family: $font-mono;
+	font-size: 10px;
+	color: $text-dim;
+}
+
+.ce-bg-option-badge {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	background: rgba(124, 58, 237, 0.9);
+	color: #fff;
+	font-family: $font-ui;
+	font-size: 10px;
+	font-weight: 600;
+	padding: 3px 8px;
+	border-radius: 3px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+// ── Warp Mode UI ──────────────────────────────────────────────────────────
+.ce-warp-ui {
+	position: fixed;
+	bottom: 24px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(26, 26, 34, 0.95);
+	backdrop-filter: blur(8px);
+	border: 1px solid $border;
+	border-radius: $radius;
+	padding: 16px 20px;
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	z-index: 1000;
+}
+
+.ce-warp-hint {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-family: $font-ui;
+	font-size: 14px;
+	color: $text-muted;
+
+	svg {
+		color: rgba(100, 255, 255, 0.8);
+		flex-shrink: 0;
+	}
+}
+
+.ce-warp-actions {
+	display: flex;
+	gap: 8px;
+}
+
+// ── Scrollbar global ────────────────────────────────────────────────────────
+.ce-overlay {
+	scrollbar-width: thin;
+	scrollbar-color: $border transparent;
+}
+
+// ── Responsive ────────────────────────────────────────────────────────────
+@media (max-width: 768px) {
+	.ce-layers-panel {
+		width: 180px;
+	}
+	.ce-toolbar {
+		width: 46px;
+	}
+	.ce-tool {
+		width: 30px;
+		height: 30px;
+		svg {
+			width: 15px;
+			height: 15px;
+		}
+	}
+}

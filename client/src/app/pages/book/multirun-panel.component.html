@@ -1,0 +1,386 @@
+<div class="multirun-panel">
+
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <div class="multirun-panel__header">
+    <h2 class="multirun-panel__title">Multirun</h2>
+    <button class="btn-icon" type="button" title="Close" (click)="closed.emit()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        width="16" height="16">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- ── Presets ──────────────────────────────────────────────────── -->
+  <div class="multirun-panel__presets">
+    <div class="multirun-panel__presets-row">
+      <span class="multirun-section__label">Presets</span>
+      @if (presets().length) {
+        <select class="select multirun-panel__preset-sel"
+          (change)="applyPreset($any($event.target).value); $any($event.target).value = ''">
+          <option value="" disabled selected>Load preset…</option>
+          @for (p of presets(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      } @else {
+        <span class="multirun-panel__presets-empty">No saved presets</span>
+      }
+      <div style="flex:1"></div>
+      <button class="btn" type="button" (click)="toggleSaveRow()" [disabled]="running()">
+        {{ showSaveRow() ? 'Cancel' : 'Save…' }}
+      </button>
+    </div>
+
+    @if (showSaveRow()) {
+      <div class="multirun-panel__save-row">
+        <input
+          class="control multirun-panel__save-input"
+          type="text"
+          placeholder="Preset name"
+          [value]="savePresetName()"
+          (input)="savePresetName.set($any($event.target).value)"
+          (keydown.enter)="savePreset()"
+        />
+        <button class="btn btn--primary" type="button"
+          [disabled]="!savePresetName().trim() || presetSaving()"
+          (click)="savePreset()">
+          {{ presetSaving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    }
+
+    @if (presets().length) {
+      <div class="multirun-panel__preset-list">
+        @for (p of presets(); track p.id) {
+          <div class="multirun-panel__preset-item">
+            <span class="multirun-panel__preset-name">{{ p.name }}</span>
+            <button class="btn-icon btn-icon--danger" type="button"
+              title="Delete preset" (click)="deletePreset(p.id)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                width="13" height="13">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="multirun-panel__body">
+
+    <!-- ── Shared Fields ────────────────────────────────────────────── -->
+    <section class="multirun-section">
+      <div class="multirun-section__head">
+        <span class="multirun-section__label">Shared Fields</span>
+        <button class="btn" type="button" (click)="addSharedField()">+ Add Field</button>
+      </div>
+
+      @if (sharedFields().length === 0) {
+        <p class="multirun-hint">
+          Add shared fields to tie the same value across multiple flows — e.g. a shared prompt.
+        </p>
+      }
+
+      @for (field of sharedFields(); track field.id) {
+        <div class="multirun-shared-row">
+          <input
+            class="control multirun-shared-row__label"
+            type="text"
+            placeholder="Label"
+            [value]="field.label"
+            (input)="updateSharedFieldLabel(field.id, $any($event.target).value)"
+          />
+          <input
+            class="control multirun-shared-row__value"
+            type="text"
+            placeholder="Value"
+            [value]="field.value"
+            (input)="updateSharedFieldValue(field.id, $any($event.target).value)"
+          />
+          <button class="btn-icon btn-icon--danger" type="button" (click)="removeSharedField(field.id)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              width="14" height="14">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      }
+    </section>
+
+    <!-- ── Flow Queue ────────────────────────────────────────────────── -->
+    <section class="multirun-section multirun-section--queue">
+      <div class="multirun-section__head">
+        <span class="multirun-section__label">Flow Queue</span>
+        <button
+          class="btn"
+          type="button"
+          [disabled]="!flows().length || running()"
+          (click)="addEntry()"
+        >+ Add Flow</button>
+      </div>
+
+      @if (entries().length === 0) {
+        <p class="multirun-hint">Add flows to run them in sequence.</p>
+      }
+
+      @for (entry of entries(); track entry.id; let i = $index) {
+        @let status = statuses()[entry.id];
+        @let cfgs = getFlowConfigurables(entry.flowId);
+        @let expanded = isExpanded(entry.id);
+
+        <div
+          class="multirun-entry"
+          [class.multirun-entry--running]="status?.state === 'running'"
+          [class.multirun-entry--done]="status?.state === 'done'"
+          [class.multirun-entry--error]="status?.state === 'error'"
+        >
+          <!-- Entry header row -->
+          <div class="multirun-entry__head">
+            <span class="multirun-entry__index">{{ i + 1 }}</span>
+
+            <select
+              class="select multirun-entry__sel"
+              [disabled]="running()"
+              (change)="updateEntryFlow(entry.id, $any($event.target).value)"
+            >
+              @for (f of flows(); track f.id) {
+                <option [value]="f.id" [selected]="f.id === entry.flowId">{{ getFlowOptionLabel(f) }}</option>
+              }
+            </select>
+
+            <select
+              class="select multirun-entry__sel multirun-entry__sel--tmpl"
+              [disabled]="running()"
+              (change)="updateEntryTemplate(entry.id, $any($event.target).value)"
+            >
+              @for (t of getTemplates(entry.flowId); track t.id) {
+                <option [value]="t.id" [selected]="t.id === entry.templateId">{{ t.name }}</option>
+              }
+            </select>
+
+            <button
+              class="btn-icon multirun-entry__expand-btn"
+              type="button"
+              [title]="expanded ? 'Collapse' : 'Expand configurables'"
+              (click)="toggleExpand(entry.id)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                width="13" height="13"
+                [style.transform]="expanded ? 'rotate(180deg)' : 'rotate(0deg)'"
+                style="transition: transform 0.15s"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            <button
+              class="btn-icon btn-icon--danger"
+              type="button"
+              title="Remove"
+              [disabled]="running()"
+              (click)="removeEntry(entry.id)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                width="14" height="14">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Status strip -->
+          @if (status) {
+            <div class="multirun-entry__status">
+              @if (status.state === 'running') {
+                <div class="multirun-entry__bar">
+                  <div class="multirun-entry__bar-fill" [style.width.%]="status.progress"></div>
+                </div>
+                <span class="multirun-entry__pct">{{ status.progress }}%</span>
+              } @else if (status.state === 'done') {
+                <span class="multirun-entry__badge multirun-entry__badge--done">Done</span>
+                @if (status.resultUrl) {
+                  <img class="multirun-entry__thumb" [src]="status.resultUrl" alt="Result" />
+                }
+              } @else if (status.state === 'error') {
+                <span class="multirun-entry__badge multirun-entry__badge--error">Error</span>
+                @if (status.error) {
+                  <span class="multirun-entry__err-msg">{{ status.error }}</span>
+                }
+              } @else if (status.state === 'pending') {
+                <span class="multirun-entry__badge multirun-entry__badge--pending">Pending</span>
+              }
+            </div>
+          }
+
+          <!-- Configurables -->
+          @if (expanded) {
+            <div class="multirun-entry__cfgs">
+              @if (cfgs.length === 0) {
+                <p class="multirun-hint multirun-hint--sm">No configurable parameters.</p>
+              }
+              @for (cfg of cfgs; track cfg.id) {
+                @let linkedField = getLinkedField(entry, cfg.id);
+
+                <div class="multirun-cfg">
+                  <span class="multirun-cfg__label" [title]="cfg.name">{{ cfg.name }}</span>
+
+                  <div class="multirun-cfg__value">
+                    @if (linkedField) {
+                      <span class="multirun-cfg__linked-badge">{{ linkedField.label }}</span>
+                    } @else {
+                      @switch (cfg.type) {
+
+                        @case ('multilineText') {
+                          <textarea
+                            class="control multirun-cfg__input multirun-cfg__input--multiline"
+                            rows="2"
+                            [placeholder]="cfg.name"
+                            [value]="entry.overrides[cfg.id] || ''"
+                            [disabled]="running()"
+                            (input)="setOverride(entry.id, cfg.id, $any($event.target).value)"
+                          ></textarea>
+                        }
+
+                        @case ('number') {
+                          <input class="control multirun-cfg__input" type="number"
+                            [placeholder]="cfg.name"
+                            [value]="entry.overrides[cfg.id] || ''"
+                            [disabled]="running()"
+                            (input)="setOverride(entry.id, cfg.id, $any($event.target).value)" />
+                        }
+
+                        @case ('finalImageWidth') {
+                          <input class="control multirun-cfg__input" type="number"
+                            [placeholder]="cfg.name"
+                            [value]="entry.overrides[cfg.id] || ''"
+                            [disabled]="running()"
+                            (input)="setOverride(entry.id, cfg.id, $any($event.target).value)" />
+                        }
+
+                        @case ('finalImageHeight') {
+                          <input class="control multirun-cfg__input" type="number"
+                            [placeholder]="cfg.name"
+                            [value]="entry.overrides[cfg.id] || ''"
+                            [disabled]="running()"
+                            (input)="setOverride(entry.id, cfg.id, $any($event.target).value)" />
+                        }
+
+                        @case ('preset') {
+                          <select
+                            class="select multirun-cfg__input"
+                            [disabled]="running()"
+                            (change)="setOverride(entry.id, cfg.id, $any($event.target).value)"
+                          >
+                            @for (opt of cfg.presets; track opt) {
+                              <option [value]="opt" [selected]="opt === (entry.overrides[cfg.id] || '')">{{ opt }}</option>
+                            }
+                          </select>
+                        }
+
+                        @case ('lora') {
+                          <select
+                            class="select multirun-cfg__input"
+                            [disabled]="running()"
+                            (change)="setOverride(entry.id, cfg.id, $any($event.target).value)"
+                          >
+                            <option value="" [selected]="!(entry.overrides[cfg.id])">None</option>
+                            @for (file of getLoraOptions(cfg.presets); track file.path) {
+                              <option [value]="file.path" [selected]="file.path === entry.overrides[cfg.id]">{{ file.name }}</option>
+                            }
+                          </select>
+                        }
+
+                        @case ('core') {
+                          @if (cfg.id === 'positivePrompt' || cfg.id === 'negativePrompt') {
+                            <textarea
+                              class="control multirun-cfg__input multirun-cfg__input--multiline"
+                              rows="2"
+                              [placeholder]="cfg.name"
+                              [value]="entry.overrides[cfg.id] || ''"
+                              [disabled]="running()"
+                              (input)="setOverride(entry.id, cfg.id, $any($event.target).value)"
+                            ></textarea>
+                          } @else if (cfg.id === 'seed') {
+                            <input class="control multirun-cfg__input" type="number"
+                              [placeholder]="cfg.name"
+                              [value]="entry.overrides[cfg.id] || ''"
+                              [disabled]="running()"
+                              (input)="setOverride(entry.id, cfg.id, $any($event.target).value)" />
+                          } @else {
+                            <input class="control multirun-cfg__input" type="text"
+                              [placeholder]="cfg.name"
+                              [value]="entry.overrides[cfg.id] || ''"
+                              [disabled]="running()"
+                              (input)="setOverride(entry.id, cfg.id, $any($event.target).value)" />
+                          }
+                        }
+
+                        @default {
+                          <input class="control multirun-cfg__input" type="text"
+                            [placeholder]="cfg.name"
+                            [value]="entry.overrides[cfg.id] || ''"
+                            [disabled]="running()"
+                            (input)="setOverride(entry.id, cfg.id, $any($event.target).value)" />
+                        }
+
+                      }
+                    }
+                  </div>
+
+                  <!-- Link select -->
+                  <select
+                    class="select multirun-cfg__link-sel"
+                    [class.multirun-cfg__link-sel--active]="!!linkedField"
+                    [disabled]="running()"
+                    (change)="setLink(entry.id, cfg.id, $any($event.target).value)"
+                  >
+                    <option value="" [selected]="!(entry.links[cfg.id])">—</option>
+                    @for (field of getAvailableSharedFields(entry, cfg.id); track field.id) {
+                      <option [value]="field.id" [selected]="field.id === entry.links[cfg.id]">{{ field.label }}</option>
+                    }
+                  </select>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </section>
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────── -->
+  <div class="multirun-panel__footer">
+    @if (overallProgress(); as p) {
+      <div class="multirun-panel__overall">
+        <div class="multirun-panel__overall-bar">
+          <div class="multirun-panel__overall-fill" [style.width.%]="p.pct"></div>
+        </div>
+        <span class="multirun-panel__overall-label">{{ p.done }} / {{ p.total }} flows</span>
+      </div>
+    }
+    <button
+      class="btn btn--primary multirun-panel__run-btn"
+      type="button"
+      [disabled]="!canRun()"
+      (click)="onRun()"
+    >
+      @if (running()) {
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          width="14" height="14" class="multirun-panel__run-spinner">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+        Running…
+      } @else {
+        Run All ({{ entries().length }} flow{{ entries().length === 1 ? '' : 's' }})
+      }
+    </button>
+  </div>
+
+</div>

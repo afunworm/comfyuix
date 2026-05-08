@@ -1,0 +1,107 @@
+import "dotenv/config";
+import { NestFactory } from "@nestjs/core";
+import {
+	FastifyAdapter,
+	NestFastifyApplication,
+} from "@nestjs/platform-fastify";
+import { AppModule } from "./app.module";
+import { TunnelService } from "./tunnel/tunnel.service";
+import httpProxy = require("http-proxy");
+import Database from "better-sqlite3";
+
+async function bootstrap() {
+	const app = await NestFactory.create<NestFastifyApplication>(
+		AppModule,
+		new FastifyAdapter({ ignoreTrailingSlash: true }),
+	);
+
+	app.enableCors({
+		origin: "*",
+		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+	});
+
+	const fastify = app.getHttpAdapter().getInstance();
+	fastify.addContentTypeParser("*", (_request, payload, done) => {
+		done(null, payload);
+	});
+
+	// Shared DB connection for upgrade-event lookups (outside Fastify pipeline)
+	const dbPath = process.env.DB_PATH ?? "/data/db.sqlite";
+	const db = new Database(dbPath);
+
+	const tunnelService = app.get(TunnelService);
+	const server = app.getHttpServer();
+
+	server.on("upgrade", (req: any, socket: any, head: any) => {
+		const url: string = req.url ?? "";
+
+		// ── Sidecar tunnel connection ─────────────────────────────────────────
+		if (url.startsWith("/tunnel")) {
+			const { searchParams } = new URL(url, "http://localhost");
+			const token = searchParams.get("token");
+
+			if (!token) {
+				socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+				socket.destroy();
+				return;
+			}
+
+			const book: any = db
+				.prepare("SELECT id FROM book WHERE tunnel_token = ?")
+				.get(token);
+
+			if (!book) {
+				socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+				socket.destroy();
+				return;
+			}
+
+			tunnelService.wss.handleUpgrade(req, socket, head, (ws) => {
+				tunnelService.register(book.id, ws);
+			});
+			return;
+		}
+
+		// ── Client WebSocket via proxy ────────────────────────────────────────
+		if (url.startsWith("/proxy/")) {
+			const urlParts = url.split("/");
+			const bookId = urlParts[2];
+			const remainingPath = "/" + urlParts.slice(3).join("/");
+
+			// Prefer tunnel if connected
+			if (tunnelService.hasTunnel(bookId)) {
+				tunnelService.wss.handleUpgrade(req, socket, head, (clientWs) => {
+					tunnelService.proxyWs(bookId, clientWs, remainingPath);
+				});
+				return;
+			}
+
+			// Fall back to direct http-proxy
+			const book: any = db
+				.prepare("SELECT endpoint_base FROM book WHERE id = ?")
+				.get(bookId);
+
+			if (!book) {
+				socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+				socket.destroy();
+				return;
+			}
+
+			let target = book.endpoint_base;
+			if (!/^https?:\/\//.test(target)) target = `http://${target}`;
+
+			const wsProxy = httpProxy.createProxyServer({ target, ws: true });
+			wsProxy.on("error", (err) => {
+				console.error("[WS proxy error]", err.message);
+				socket.destroy();
+			});
+
+			req.url = remainingPath;
+			wsProxy.ws(req, socket, head);
+		}
+	});
+
+	await app.listen(process.env.PORT ?? 8888, "0.0.0.0");
+	console.log(`Server running on http://localhost:${process.env.PORT ?? 8888}`);
+}
+bootstrap();

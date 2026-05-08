@@ -1,0 +1,82 @@
+<div class="backdrop" data-open="true" style="background: var(--bg)">
+	<div class="dialog" style="width: min(460px, 100%)">
+		<div class="dialog__head">
+			<h2 class="dialog__title">Welcome — Create Admin Account</h2>
+		</div>
+
+		<div class="dialog__body">
+			<p class="dialog__msg">
+				No accounts exist yet. Create the first account to get started.
+			</p>
+			<div class="field">
+				<label class="label" for="username">Username</label>
+				<input
+					id="username"
+					class="control"
+					type="text"
+					placeholder="choose a username"
+					[(ngModel)]="username"
+					(keydown.enter)="emailField.focus()"
+				/>
+			</div>
+			<div class="field">
+				<label class="label" for="email">Email Address</label>
+				<input
+					#emailField
+					id="email"
+					class="control"
+					type="email"
+					placeholder="you@example.com"
+					[(ngModel)]="email"
+					(keydown.enter)="passwordField.focus()"
+				/>
+			</div>
+			<div class="field">
+				<label class="label" for="password">Password</label>
+				<input
+					#passwordField
+					id="password"
+					class="control"
+					type="password"
+					placeholder="choose a password"
+					[(ngModel)]="password"
+					(keydown.enter)="confirmField.focus()"
+				/>
+			</div>
+			<div class="field">
+				<label class="label" for="confirm">Confirm Password</label>
+				<input
+					#confirmField
+					id="confirm"
+					class="control"
+					type="password"
+					placeholder="repeat your password"
+					[(ngModel)]="confirmPassword"
+					(keydown.enter)="create()"
+				/>
+			</div>
+			<label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none">
+				<input type="checkbox" [(ngModel)]="signupsEnabled" />
+				<span>Allow public signups</span>
+			</label>
+		</div>
+
+		@if (error) {
+			<div style="padding: 0 14px">
+				<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+					{{ error }}
+				</div>
+			</div>
+		}
+
+		<div class="dialog__foot">
+			<button
+				class="btn btn--primary"
+				[disabled]="loading || !username || !email || !password || !confirmPassword"
+				(click)="create()"
+			>
+				{{ loading ? "Creating…" : "Create Account" }}
+			</button>
+		</div>
+	</div>
+</div>

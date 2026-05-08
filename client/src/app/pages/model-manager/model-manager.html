@@ -1,0 +1,1417 @@
+<div class="app">
+	<main class="model-manager">
+		<!-- ── Sidebar ── -->
+		<aside class="model-manager__sidebar">
+			<div class="model-manager__sidebar-head">
+				<a
+					class="btn-icon"
+					[routerLink]="['/servers']"
+					aria-label="Back to servers"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<polyline points="15 18 9 12 15 6" />
+					</svg>
+				</a>
+				<div class="model-manager__sidebar-title-group">
+					<span class="model-manager__sidebar-title">Model Manager</span>
+					@if (server(); as s) {
+						<span class="model-manager__server-name">{{ s.name }}</span>
+					}
+				</div>
+			</div>
+			<div class="model-manager__server-status">
+				<span
+					class="model-manager__tunnel-dot"
+					[class.is-connected]="tunnelConnected()"
+				></span>
+				<span>{{ tunnelConnected() ? "Tunnel connected" : "Tunnel offline" }}</span>
+			</div>
+
+			<nav class="model-manager__type-nav">
+				@for (type of modelTypes; track type.path) {
+					<button
+						class="model-manager__type-btn"
+						[class.is-active]="
+							activeTab() === 'files' && selectedType().path === type.path
+						"
+						type="button"
+						(click)="sidebarTypeClick(type)"
+					>
+						{{ type.label }}
+					</button>
+				}
+			</nav>
+		</aside>
+
+		<!-- ── Main content ── -->
+		<div class="model-manager__content">
+			<!-- Tab bar -->
+			<div class="model-manager__tabs">
+				<button
+					class="model-manager__tab-btn"
+					[class.is-active]="activeTab() === 'files'"
+					type="button"
+					(click)="switchTab('files')"
+				>
+					Files
+				</button>
+				<button
+					class="model-manager__tab-btn"
+					[class.is-active]="activeTab() === 'manifest'"
+					type="button"
+					(click)="switchTab('manifest')"
+				>
+					Manifest
+					@if (manifest().length > 0) {
+						<span class="model-manager__tab-count">{{ manifest().length }}</span>
+					}
+				</button>
+			</div>
+
+			<!-- Active downloads (always visible) -->
+			@if (activeDownloads().length > 0 || downloadQueue().length > 0) {
+				<div class="model-manager__downloads">
+					@for (dl of activeDownloads(); track dl.fetchId) {
+						<div
+							class="model-manager__dl-item"
+							[class.is-done]="dl.status.done"
+							[class.is-error]="dl.status.error"
+							[class.is-indeterminate]="!dl.status.done && !dl.status.error && dl.status.percent === 0 && !!dl.status.bytes"
+							[style.--dl-progress]="dl.status.percent + '%'"
+						>
+							<div class="model-manager__dl-info">
+								<span class="model-manager__dl-name">{{ dl.name }}</span>
+								<span class="model-manager__dl-dest">→ {{ dl.dest }}</span>
+							</div>
+							@if (dl.status.error) {
+								<span class="model-manager__dl-status">{{ dl.status.error }}</span>
+							} @else if (dl.status.done) {
+								<span class="model-manager__dl-status is-done">Done</span>
+							} @else if (dl.status.percent === 0 && dl.status.bytes) {
+								<span class="model-manager__dl-status">{{ (dl.status.bytes / 1048576).toFixed(1) }} MB received</span>
+							} @else {
+								<span class="model-manager__dl-status">{{ dl.status.percent }}%</span>
+							}
+							@if (dl.status.done || dl.status.error) {
+								<button
+									class="btn-icon"
+									type="button"
+									(click)="dismissDownload(dl.fetchId)"
+									aria-label="Dismiss"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
+									</svg>
+								</button>
+							} @else {
+								<button
+									class="btn-icon"
+									type="button"
+									(click)="cancelDownload(dl.fetchId, dl.name)"
+									aria-label="Cancel download"
+									title="Cancel download"
+									style="color: var(--warn)"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+								</button>
+							}
+						</div>
+					}
+					@for (m of downloadQueue(); track m.dest; let i = $index) {
+						<div class="model-manager__dl-item is-queued">
+							<div class="model-manager__dl-info">
+								<span class="model-manager__dl-name">{{ m.name }}</span>
+								<span class="model-manager__dl-dest">→ {{ m.dest }}</span>
+							</div>
+							<span class="model-manager__dl-status">Queue #{{ i + 1 }}</span>
+							<button
+								class="btn-icon"
+								type="button"
+								(click)="removeFromQueue(m.dest)"
+								aria-label="Remove from queue"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+							</button>
+						</div>
+					}
+				</div>
+			}
+
+			<!-- ════ FILES TAB ════ -->
+			@if (activeTab() === "files") {
+				<div class="model-manager__topbar">
+					<h2 class="model-manager__heading">
+						{{ selectedType().label }}
+						<span class="model-manager__heading-path"
+							>/{{ selectedType().path }}</span
+						>
+					</h2>
+					<div class="btn-row">
+						<button class="btn" type="button" (click)="loadFiles()">Refresh</button>
+						<button class="btn" type="button" (click)="openCreateFolderDialog()">
+							New Folder
+						</button>
+						<button
+							class="btn btn--primary"
+							type="button"
+							(click)="openDownloadDialog()"
+						>
+							+ Download Model
+						</button>
+					</div>
+				</div>
+
+				<div class="tab-hint">
+					<p>
+						<strong>Files</strong> shows what's physically on this server's disk.
+					</p>
+					<p>
+						<span class="badge badge--tracked">tracked</span> files have a URL
+						recorded in the Manifest and can be re-downloaded on any server.
+						<span class="badge badge--untracked">untracked</span> files exist on disk
+						but have no URL — click <strong>+</strong> on a file to add it.
+					</p>
+					<p>Use <strong>+ Download Model</strong> to fetch a new model directly.</p>
+				</div>
+
+				@if (filesLoading()) {
+					<p class="model-manager__empty">Loading…</p>
+				} @else if (filesError()) {
+					<p class="model-manager__empty" style="color: var(--danger)">
+						{{ filesError() }}
+					</p>
+				} @else if (entriesByFolder().length === 0) {
+					<p class="model-manager__empty">
+						No files found in <code>{{ selectedType().path }}</code
+						>.
+					</p>
+				} @else {
+					@for (group of entriesByFolder(); track group[0]) {
+						@if (group[0] || group[1].length > 0) {
+							<div class="model-manager__group">
+								<div class="model-manager__group-header">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path
+											d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+										/>
+									</svg>
+									<span>{{ group[0] ? "/" + group[0] : "." }}</span>
+									@if (group[0]) {
+										<button
+											class="btn-icon model-manager__folder-delete"
+											type="button"
+											title="Delete folder and all its files"
+											(click)="confirmDeleteFolder(group[0])"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<polyline points="3 6 5 6 21 6" />
+												<path d="M19 6l-1 14H6L5 6" />
+												<path d="M10 11v6M14 11v6" />
+												<path d="M9 6V4h6v2" />
+											</svg>
+										</button>
+									}
+								</div>
+
+								@for (entry of group[1]; track entry.path) {
+									<div
+										class="model-manager__file"
+										[class.is-unsupported]="!isSupported(entry)"
+									>
+										<div class="model-manager__file-info">
+											<span class="model-manager__file-name">{{ entry.name }}</span>
+											<span class="model-manager__file-meta">{{
+												formatSize(entry.size)
+											}}</span>
+											@if (isTracked(entry)) {
+												<span class="badge badge--tracked">tracked</span>
+											} @else {
+												<span class="badge badge--untracked">untracked</span>
+											}
+											@if (getManifestEntry(entry); as me) {
+												@if (me.source === "civitai") {
+													<span class="badge badge--civitai">CivitAI</span>
+												} @else if (me.source === "huggingface") {
+													<span class="badge badge--hf">HuggingFace</span>
+												}
+											}
+										</div>
+										<div class="model-manager__file-actions">
+											@if (isTracked(entry)) {
+												<button
+													class="btn-icon"
+													type="button"
+													title="Remove from manifest"
+													(click)="removeFromManifest(entry)"
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<line x1="5" y1="12" x2="19" y2="12" />
+													</svg>
+												</button>
+											} @else {
+												<button
+													class="btn-icon"
+													type="button"
+													title="Add to manifest"
+													(click)="addToManifest(entry)"
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<line x1="12" y1="5" x2="12" y2="19" />
+														<line x1="5" y1="12" x2="19" y2="12" />
+													</svg>
+												</button>
+											}
+											<button
+												class="btn-icon"
+												type="button"
+												title="Delete file"
+												style="color: var(--danger)"
+												(click)="confirmDelete(entry)"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<polyline points="3 6 5 6 21 6" />
+													<path d="M19 6l-1 14H6L5 6" />
+													<path d="M10 11v6M14 11v6" />
+													<path d="M9 6V4h6v2" />
+												</svg>
+											</button>
+											<button
+												class="btn-icon"
+												type="button"
+												title="View file info"
+												(click)="openInfoModal(entry)"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+											</button>
+										</div>
+									</div>
+								}
+							</div>
+						}
+					}
+				}
+			}
+
+			<!-- ════ MANIFEST TAB ════ -->
+			@if (activeTab() === "manifest") {
+				<div class="model-manager__topbar">
+					<h2 class="model-manager__heading">Manifest</h2>
+					<div class="btn-row" style="align-items: center">
+						@if (manifestSyncing()) {
+							<span style="font-size: 0.82rem; color: var(--muted)">Syncing…</span>
+						} @else {
+							<button class="btn" type="button" (click)="syncDiskStatus()">
+								Sync Status
+							</button>
+						}
+						<button class="btn" type="button" (click)="openImportDialog()">
+							Import
+						</button>
+						<button class="btn" type="button" (click)="exportManifest()">
+							Export
+						</button>
+						<button class="btn" type="button" (click)="openQuickTrackDialog()">
+							Quick Track
+						</button>
+						<button
+							class="btn btn--primary"
+							type="button"
+							(click)="openAddEntryDialog()"
+						>
+							+ Add Entry
+						</button>
+						@if (downloadQueue().length > 0) {
+							@if (queueRunning()) {
+								<button class="btn" type="button" (click)="stopQueue()" style="font-size: 0.82rem">
+									Stop Queue
+								</button>
+							} @else {
+								<button class="btn btn--primary" type="button" (click)="startQueue()" style="font-size: 0.82rem">
+									Download Queue ({{ downloadQueue().length }})
+								</button>
+							}
+						}
+					</div>
+				</div>
+
+				<div class="tab-hint">
+					<p>
+						The <strong>Manifest</strong> is your model wishlist — a list of file
+						paths and their download URLs, independent of what's on disk.
+					</p>
+					<p>
+						A
+						<span
+							class="manifest-entry__status is-downloaded"
+							style="display: inline-block; vertical-align: middle; margin-right: 3px"
+						></span>
+						<strong>green dot</strong> means the file is on disk; a
+						<span
+							class="manifest-entry__status"
+							style="display: inline-block; vertical-align: middle; margin-right: 3px"
+						></span>
+						<strong>dim dot</strong> means it hasn't been downloaded yet.
+					</p>
+					<p>
+						Use <strong>+ Add Entry</strong> to plan a model you don't have yet, or
+						<strong>Quick Track</strong> to bulk-add URLs for existing files.
+						<strong>Export</strong> saves this list as JSON so you can import it on
+						another server.
+					</p>
+				</div>
+
+				@if (manifestSyncError()) {
+					<div class="inset" style="padding: 10px 14px; color: var(--danger)">
+						{{ manifestSyncError() }}
+					</div>
+				}
+
+				@if (manifest().length === 0) {
+					<p class="model-manager__empty">
+						No manifest entries yet. Add entries to track models and their download
+						URLs.
+					</p>
+				} @else {
+					@for (section of manifestByType(); track section.typePath) {
+						<div
+							class="manifest-section"
+							[id]="'manifest-section-' + section.typePath"
+						>
+							<div class="manifest-section__header">
+								<span class="manifest-section__label">{{ section.label }}</span>
+								<span class="manifest-section__path">/{{ section.typePath }}</span>
+								<span class="manifest-section__count">{{
+									section.entries.length
+								}}</span>
+							</div>
+
+							@for (m of section.entries; track m.id) {
+								<div class="manifest-entry">
+									<span
+										class="manifest-entry__status"
+										[class.is-downloaded]="isDownloaded(m)"
+										[title]="isDownloaded(m) ? 'Downloaded' : 'Not on disk'"
+									>
+									</span>
+									<div class="manifest-entry__info">
+										<span class="manifest-entry__name">{{
+											m.dest.split("/").pop()
+										}}</span>
+										<span class="manifest-entry__dest">{{ m.dest }}</span>
+									</div>
+									@switch (m.source) {
+										@case ("huggingface") {
+											<span class="dl-source-badge dl-source-badge--hf">HF</span>
+										}
+										@case ("civitai") {
+											<span class="dl-source-badge dl-source-badge--civ">CivitAI</span>
+										}
+										@default {
+											<span class="dl-source-badge">URL</span>
+										}
+									}
+									<div class="manifest-entry__actions">
+										@if (!isDownloaded(m)) {
+											<button
+												class="btn"
+												type="button"
+												style="font-size: 0.78rem; padding: 4px 10px; white-space: nowrap"
+												title="Download this model"
+												[disabled]="isDownloading(m.dest)"
+												(click)="downloadManifestEntry(m)"
+											>
+												{{ isDownloading(m.dest) ? "Downloading…" : "Download" }}
+											</button>
+										}
+										@if (!isDownloaded(m) && !isDownloading(m.dest)) {
+											@if (isQueued(m.dest)) {
+												<button
+													class="btn"
+													type="button"
+													style="font-size: 0.78rem; padding: 4px 10px; white-space: nowrap; color: var(--muted)"
+													title="Remove from queue"
+													(click)="removeFromQueue(m.dest)"
+												>
+													Queued
+												</button>
+											} @else {
+												<button
+													class="btn"
+													type="button"
+													style="font-size: 0.78rem; padding: 4px 10px; white-space: nowrap"
+													title="Add to download queue"
+													(click)="addToQueue(m)"
+												>
+													+ Queue
+												</button>
+											}
+										}
+										<button
+											class="btn-icon"
+											type="button"
+											title="Edit URL"
+											(click)="openEditUrlDialog(m)"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+										</button>
+										<button
+											class="btn-icon"
+											type="button"
+											title="Rename"
+											(click)="openRenameDialog(m)"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<path
+													d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+												/>
+												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+											</svg>
+										</button>
+										@if (isDownloaded(m)) {
+											<button
+												class="btn-icon"
+												type="button"
+												title="Delete file from disk (keep entry)"
+												style="color: var(--warn)"
+												(click)="deleteManifestFile(m)"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<polyline points="3 6 5 6 21 6" />
+													<path d="M19 6l-1 14H6L5 6" />
+													<path d="M10 11v6M14 11v6" />
+													<path d="M9 6V4h6v2" />
+												</svg>
+											</button>
+										}
+										<button
+											class="btn-icon"
+											type="button"
+											title="Remove entry from manifest"
+											style="color: var(--danger)"
+											(click)="removeManifestEntry(m)"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<line x1="5" y1="12" x2="19" y2="12" />
+											</svg>
+										</button>
+									</div>
+								</div>
+							}
+						</div>
+					}
+				}
+			}
+		</div>
+	</main>
+
+	<!-- ── Create folder dialog ── -->
+	@if (showCreateFolderDialog()) {
+		<div
+			class="backdrop"
+			data-open="true"
+			(click)="showCreateFolderDialog.set(false)"
+		>
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">New Folder</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="showCreateFolderDialog.set(false)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					<div class="field">
+						<label class="label">Folder name</label>
+						<input
+							class="control"
+							type="text"
+							placeholder="e.g. flux"
+							[(ngModel)]="newFolderName"
+							(keydown.enter)="submitCreateFolder()"
+							autofocus
+						/>
+						<span
+							style="font-size: 0.8rem; opacity: 0.5; margin-top: 4px; display: block"
+						>
+							Will be created inside /{{ selectedType().path }}
+						</span>
+					</div>
+					@if (newFolderError) {
+						<div
+							class="inset"
+							style="margin-top: 12px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ newFolderError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button
+						class="btn"
+						type="button"
+						(click)="showCreateFolderDialog.set(false)"
+					>
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="newFolderSubmitting || !newFolderName.trim()"
+						(click)="submitCreateFolder()"
+					>
+						{{ newFolderSubmitting ? "Creating…" : "Create" }}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Download dialog ── -->
+	@if (showDownloadDialog()) {
+		<div
+			class="backdrop"
+			data-open="true"
+			(click)="showDownloadDialog.set(false)"
+		>
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Download Model</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="showDownloadDialog.set(false)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					<div class="field" style="margin-bottom: 14px">
+						<label class="label">URL</label>
+						<div class="dl-url-sources">
+							<span class="dl-source-hint">Accepted:</span>
+							<span class="dl-source-badge dl-source-badge--hf">HuggingFace</span>
+							<span class="dl-source-badge dl-source-badge--civ">CivitAI</span>
+							<span class="dl-source-badge">Direct link</span>
+						</div>
+						<input
+							class="control"
+							type="url"
+							[(ngModel)]="dlUrl"
+							(input)="onDlUrlChange()"
+						/>
+						@if (dlUrl) {
+							<div class="dl-source-row">
+								@switch (detectSource(dlUrl)) {
+									@case ("huggingface") {
+										<span class="dl-source-badge dl-source-badge--hf">HuggingFace</span>
+										<span class="dl-source-hint"
+											>HF token will be added automatically</span
+										>
+									}
+									@case ("civitai") {
+										<span class="dl-source-badge dl-source-badge--civ">CivitAI</span>
+										<span class="dl-source-hint"
+											>CivitAI token will be appended to URL</span
+										>
+									}
+									@default {
+										<span class="dl-source-badge">Direct link</span>
+										<span class="dl-source-hint">Downloaded as-is, no auth</span>
+									}
+								}
+							</div>
+						}
+					</div>
+					<div class="dl-path-row" style="margin-bottom: 4px">
+						<div class="field">
+							<label class="label">Save to folder</label>
+							<select class="select" [(ngModel)]="dlFolder">
+								@for (opt of folderOptions(); track opt.value) {
+									<option [value]="opt.value">{{ opt.label }}</option>
+								}
+							</select>
+						</div>
+						<div class="dl-path-sep">/</div>
+						<div class="field">
+							<label class="label">Filename</label>
+							<input
+								class="control"
+								type="text"
+								placeholder="model.safetensors"
+								[(ngModel)]="dlFilename"
+								(input)="onDlFilenameChange()"
+							/>
+						</div>
+					</div>
+					<span class="dl-dest-preview">→ {{ dlDestFull() || "…" }}</span>
+					@if (dlUrl && !dlFilename.trim()) {
+						<span class="dl-dest-hint">{{ dlFilenameHint() }}</span>
+					}
+					@if (dlUrl && !dlExtensionValid()) {
+						<span class="dl-dest-hint"
+							>Extension not allowed. Accepted:
+							{{ allowedExtensions.join(", ") }}</span
+						>
+					}
+					<label
+						style="
+							display: flex;
+							align-items: center;
+							gap: 8px;
+							font-size: 0.9rem;
+							cursor: pointer;
+							margin-top: 14px;
+						"
+					>
+						<input type="checkbox" [(ngModel)]="dlAddToManifest" />
+						Add to manifest
+					</label>
+					@if (dlError) {
+						<div
+							class="inset"
+							style="margin-top: 14px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ dlError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button class="btn" type="button" (click)="showDownloadDialog.set(false)">
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="dlSubmitting || !dlUrl || !dlExtensionValid()"
+						(click)="submitDownload()"
+					>
+						{{ dlSubmitting ? "Starting…" : "Download" }}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Add entry dialog (Manifest tab) ── -->
+	@if (showAddEntryDialog()) {
+		<div class="backdrop" data-open="true">
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Add Manifest Entry</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="showAddEntryDialog.set(false)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					<!-- URL -->
+					<div class="field" style="margin-bottom: 14px">
+						<label class="label">URL</label>
+						<div class="dl-url-sources">
+							<span class="dl-source-hint">Accepted:</span>
+							<span class="dl-source-badge dl-source-badge--hf">HuggingFace</span>
+							<span class="dl-source-badge dl-source-badge--civ">CivitAI</span>
+							<span class="dl-source-badge">Direct link</span>
+						</div>
+						<input
+							class="control"
+							type="url"
+							placeholder="https://…"
+							[(ngModel)]="addEntryUrl"
+							(input)="onAddEntryUrlChange()"
+							autofocus
+						/>
+					</div>
+
+					<!-- Type + subfolder + filename -->
+					<div class="dl-path-row" style="margin-bottom: 4px">
+						<div class="field">
+							<label class="label">Model type</label>
+							<select class="select" [(ngModel)]="addEntryTypePath">
+								@for (t of modelTypes; track t.path) {
+									<option [value]="t.path">{{ t.label }}</option>
+								}
+							</select>
+						</div>
+						<div class="dl-path-sep">/</div>
+						<div class="field">
+							<label class="label"
+								>Subfolder
+								<span style="opacity: 0.5; font-weight: 400">(optional)</span></label
+							>
+							<input
+								class="control"
+								type="text"
+								placeholder="flux"
+								[(ngModel)]="addEntrySubfolder"
+							/>
+						</div>
+						<div class="dl-path-sep">/</div>
+						<div class="field">
+							<label class="label">Filename</label>
+							<input
+								class="control"
+								type="text"
+								placeholder="model.safetensors"
+								[(ngModel)]="addEntryFilename"
+								(input)="onAddEntryFilenameChange()"
+							/>
+						</div>
+					</div>
+					<span class="dl-dest-preview">→ {{ addEntryDest() || "…" }}</span>
+
+					<label
+						style="
+							display: flex;
+							align-items: center;
+							gap: 8px;
+							font-size: 0.9rem;
+							cursor: pointer;
+							margin-top: 16px;
+						"
+					>
+						<input type="checkbox" [(ngModel)]="addEntryDownloadNow" />
+						Start download immediately after saving
+					</label>
+
+					@if (addEntryError) {
+						<div
+							class="inset"
+							style="margin-top: 12px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ addEntryError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button class="btn" type="button" (click)="showAddEntryDialog.set(false)">
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="addEntrySubmitting || !addEntryUrl.trim()"
+						(click)="submitAddEntry()"
+					>
+						{{
+							addEntrySubmitting
+								? "Saving…"
+								: addEntryDownloadNow
+									? "Save & Download"
+									: "Save Entry"
+						}}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Rename dialog (Manifest tab) ── -->
+	@if (showRenameDialog()) {
+		<div class="backdrop" data-open="true" (click)="showRenameDialog.set(false)">
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Rename</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="showRenameDialog.set(false)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					@if (renameTarget && isDownloaded(renameTarget)) {
+						<p style="margin: 0 0 12px; font-size: 0.85rem; color: var(--muted)">
+							This file is on disk. Renaming will also rename the file.
+						</p>
+					}
+					<div class="field">
+						<label class="label">Filename</label>
+						<input
+							class="control"
+							type="text"
+							[(ngModel)]="renameNewFilename"
+							(keydown.enter)="submitRename()"
+							autofocus
+						/>
+					</div>
+					@if (renameError) {
+						<div
+							class="inset"
+							style="margin-top: 12px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ renameError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button class="btn" type="button" (click)="showRenameDialog.set(false)">
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="renameSubmitting || !renameNewFilename.trim()"
+						(click)="submitRename()"
+					>
+						{{ renameSubmitting ? "Renaming…" : "Rename" }}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Edit URL dialog (Manifest tab) ── -->
+	@if (showEditUrlDialog()) {
+		<div class="backdrop" data-open="true" (click)="showEditUrlDialog.set(false)">
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Edit URL</h2>
+					<button class="btn-icon" type="button" aria-label="Close" (click)="showEditUrlDialog.set(false)">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					<p style="margin: 0 0 12px; font-size: 0.82rem; opacity: 0.6">
+						{{ editUrlTarget?.dest }}
+					</p>
+					<div class="field">
+						<label class="label">Download URL</label>
+						<input class="control" type="url" placeholder="https://…" [(ngModel)]="editUrlValue" (keydown.enter)="submitEditUrl()" />
+					</div>
+					@if (editUrlError) {
+						<p style="margin: 8px 0 0; color: var(--danger); font-size: 0.82rem">{{ editUrlError }}</p>
+					}
+				</div>
+				<div class="btn-row btn-row--right" style="padding: 0 20px 20px">
+					<button class="btn" type="button" (click)="showEditUrlDialog.set(false)">Cancel</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="editUrlSubmitting || !editUrlValue.trim()"
+						(click)="submitEditUrl()"
+					>
+						{{ editUrlSubmitting ? "Saving…" : "Save" }}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Import dialog ── -->
+	@if (showImportDialog()) {
+		<div class="backdrop" data-open="true">
+			<div class="dialog dialog--wide" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Import Manifest</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="showImportDialog.set(false)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body import-body">
+					<div class="import-top-row">
+						<div class="field" style="flex: 1">
+							<label class="label">Manifest JSON file</label>
+							<input
+								class="control"
+								type="file"
+								accept=".json"
+								(change)="importFromFile($event)"
+							/>
+						</div>
+						<div class="field" style="flex: 0 0 220px">
+							<label class="label">Import mode</label>
+							<select class="select" [(ngModel)]="importMode">
+								<option value="merge">Merge (keep existing)</option>
+								<option value="replace">Replace (clear all)</option>
+							</select>
+						</div>
+					</div>
+
+					@if (importPreviewReady) {
+						<div class="import-preview">
+							<div class="import-preview__header">
+								<span>{{ importPreviewEntries.length }} entries</span>
+								<div class="btn-row">
+									<button
+										class="btn"
+										type="button"
+										style="font-size: 0.78rem; padding: 3px 10px"
+										(click)="importSelectAll(true)"
+									>
+										Select all new
+									</button>
+									<button
+										class="btn"
+										type="button"
+										style="font-size: 0.78rem; padding: 3px 10px"
+										(click)="importSelectAll(false)"
+									>
+										Select none
+									</button>
+								</div>
+							</div>
+							<div class="import-preview__list">
+								@for (item of importPreviewEntries; track item.model.dest) {
+									<label
+										class="import-preview__row"
+										[class.is-tracked]="item.status === 'tracked'"
+									>
+										<input
+											type="checkbox"
+											[(ngModel)]="item.selected"
+											[disabled]="item.status === 'tracked'"
+										/>
+										<span class="import-preview__dest" [title]="item.model.dest">{{
+											item.model.dest
+										}}</span>
+										@if (item.status === "tracked") {
+											<span class="badge badge--tracked">Already in manifest</span>
+										} @else {
+											<span class="badge badge--new">New</span>
+										}
+									</label>
+								}
+							</div>
+						</div>
+					}
+
+					@if (importError) {
+						<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+							{{ importError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					@if (importPreviewReady) {
+						<span style="font-size: 0.82rem; color: var(--muted); margin-right: auto">
+							{{ importSelectedCount() }} of {{ importPreviewEntries.length }} selected
+						</span>
+					}
+					<button class="btn" type="button" (click)="showImportDialog.set(false)">
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="
+							!importPreviewReady || importSubmitting || importSelectedCount() === 0
+						"
+						(click)="submitImport()"
+					>
+						{{
+							importSubmitting
+								? "Importing…"
+								: "Import " +
+									importSelectedCount() +
+									(importSelectedCount() === 1 ? " entry" : " entries")
+						}}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Quick track dialog ── -->
+	@if (showQuickTrackDialog()) {
+		<div class="backdrop" data-open="true">
+			<div class="dialog dialog--wide">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Quick Track</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="showQuickTrackDialog.set(false)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body qt-body">
+					@if (quickTrackLoading()) {
+						<p class="model-manager__empty" style="padding: 16px 0">Loading…</p>
+					} @else if (quickTrackEntries.length === 0) {
+						<p class="model-manager__empty" style="padding: 16px 0">
+							All supported files are already tracked.
+						</p>
+					} @else {
+						<p class="qt-hint">
+							Paste a download URL next to each file you want to add to the manifest.
+							Files without a URL will be skipped.
+						</p>
+						@for (section of quickTrackSections(); track section.typePath) {
+							<div class="qt-section">
+								<div class="qt-section-heading">
+									<span>{{ section.typeLabel }}</span>
+									<span class="qt-section-path">/{{ section.typePath }}</span>
+								</div>
+								@for (group of section.groups; track group[0]) {
+									<div class="qt-group">
+										<div class="qt-group-header">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<path
+													d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+												/>
+											</svg>
+											<span>{{ group[0] ? "/" + group[0] : "." }}</span>
+										</div>
+										@for (item of group[1]; track item.entry.path) {
+											<div class="qt-row">
+												<div class="qt-row-info">
+													<span class="qt-row-name" [title]="item.entry.name">{{
+														item.entry.name
+													}}</span>
+													<span class="qt-row-size">{{ formatSize(item.entry.size) }}</span>
+												</div>
+												<input
+													class="control qt-url-input"
+													type="url"
+													placeholder="https://…"
+													[(ngModel)]="item.url"
+												/>
+											</div>
+										}
+									</div>
+								}
+							</div>
+						}
+					}
+					@if (quickTrackError) {
+						<div
+							class="inset"
+							style="margin-top: 12px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ quickTrackError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button
+						class="btn"
+						type="button"
+						(click)="showQuickTrackDialog.set(false)"
+					>
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="quickTrackSubmitting || quickTrackFilled() === 0"
+						(click)="submitQuickTrack()"
+					>
+						{{
+							quickTrackSubmitting
+								? "Tracking…"
+								: "Track " +
+									quickTrackFilled() +
+									(quickTrackFilled() === 1 ? " file" : " files")
+						}}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Add to manifest dialog (Files tab) ── -->
+	@if (pendingAddEntry(); as entry) {
+		<div class="backdrop" data-open="true" (click)="pendingAddEntry.set(null)">
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">Track in Manifest</h2>
+					<button
+						class="btn-icon"
+						type="button"
+						aria-label="Close"
+						(click)="pendingAddEntry.set(null)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					<p style="margin: 0 0 14px; font-size: 0.88rem; opacity: 0.7">
+						Tracking <strong>{{ entry.name }}</strong
+						>. Provide the download URL so this model can be restored on a fresh
+						server.
+					</p>
+					<div class="field">
+						<label class="label">Download URL</label>
+						<div class="dl-url-sources" style="margin-bottom: 6px">
+							<span class="dl-source-hint">Accepted:</span>
+							<span class="dl-source-badge dl-source-badge--hf">HuggingFace</span>
+							<span class="dl-source-badge dl-source-badge--civ">CivitAI</span>
+							<span class="dl-source-badge">Direct link</span>
+						</div>
+						<input
+							class="control"
+							type="url"
+							placeholder="https://…"
+							[(ngModel)]="addManifestUrl"
+							(keydown.enter)="submitAddToManifest()"
+							autofocus
+						/>
+					</div>
+					@if (addManifestError) {
+						<div
+							class="inset"
+							style="margin-top: 12px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ addManifestError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button class="btn" type="button" (click)="pendingAddEntry.set(null)">
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="addManifestSubmitting || !addManifestUrl.trim()"
+						(click)="submitAddToManifest()"
+					>
+						{{ addManifestSubmitting ? "Saving…" : "Track" }}
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+
+	<!-- ── Delete confirm dialog ── -->
+	@if (pendingDelete(); as pending) {
+		<div class="backdrop" data-open="true" (click)="pendingDelete.set(null)">
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">
+						{{ pending.isFolder ? "Delete Folder" : "Delete File" }}
+					</h2>
+				</div>
+				<div class="dialog__body">
+					@if (pending.isFolder) {
+						<p>
+							Delete folder <strong>/{{ pending.entry.name }}</strong> and
+							<strong>all files inside it</strong>? This cannot be undone.
+						</p>
+					} @else {
+						<p>
+							Delete <strong>{{ pending.entry.name }}</strong
+							>? This cannot be undone.
+						</p>
+					}
+					@if (deleteError) {
+						<div
+							class="inset"
+							style="margin-top: 12px; padding: 10px 12px; color: var(--danger)"
+						>
+							{{ deleteError }}
+						</div>
+					}
+				</div>
+				<div class="dialog__foot btn-row btn-row--right">
+					<button class="btn" type="button" (click)="pendingDelete.set(null)">
+						Cancel
+					</button>
+					<button
+						class="btn btn--primary"
+						type="button"
+						style="background: var(--danger)"
+						(click)="submitDelete()"
+					>
+						Delete
+					</button>
+				</div>
+			</div>
+		</div>
+	}
+</div>
+
+<!-- ════ FILE INFO MODAL ════ -->
+@if (infoModal(); as modal) {
+	<app-model-info-modal
+		[serverId]="serverId"
+		[entry]="modal.entry"
+		[fullPath]="modal.fullPath"
+		(close)="infoModal.set(null)"
+	/>
+}

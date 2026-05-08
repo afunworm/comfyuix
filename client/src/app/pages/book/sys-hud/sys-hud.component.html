@@ -1,0 +1,74 @@
+@if (systemStats(); as stats) {
+  <div class="sys-hud" [class.sys-hud--open]="open()">
+    @if (open()) {
+      <div class="sys-hud__panel">
+        @for (dev of stats.devices; track dev.name) {
+          <div class="sys-hud__device">
+            <span>{{ sysDeviceShortName(dev.name) }}</span>
+            <button
+              type="button"
+              class="sys-hud__free-btn"
+              [class.sys-hud__free-btn--sent]="freeBusy()"
+              [disabled]="freeBusy()"
+              (click)="sysUnloadAndFree()"
+            >{{ freeBusy() ? 'Sent ✓' : 'Unload &amp; Free' }}</button>
+          </div>
+          <div class="sys-hud__row">
+            <span class="sys-hud__key">VRAM</span>
+            <div class="sys-hud__bar">
+              <div
+                class="sys-hud__bar-fill"
+                [style.width.%]="sysPctUsed(dev.vram_total, dev.vram_free)"
+                [style.background]="sysBarColor(sysPctUsed(dev.vram_total, dev.vram_free))"
+              ></div>
+            </div>
+            <span
+              class="sys-hud__pct"
+              [style.color]="sysBarColor(sysPctUsed(dev.vram_total, dev.vram_free))"
+            >{{ sysPctUsed(dev.vram_total, dev.vram_free) }}%</span>
+            <span class="sys-hud__sub">{{ sysGb(dev.vram_total) }}G</span>
+          </div>
+          <div class="sys-hud__row">
+            <span class="sys-hud__key">TORCH</span>
+            <div class="sys-hud__bar">
+              <div
+                class="sys-hud__bar-fill"
+                [style.width.%]="sysPctUsed(dev.torch_vram_total, dev.torch_vram_free)"
+                [style.background]="sysBarColor(sysPctUsed(dev.torch_vram_total, dev.torch_vram_free))"
+              ></div>
+            </div>
+            <span
+              class="sys-hud__pct"
+              [style.color]="sysBarColor(sysPctUsed(dev.torch_vram_total, dev.torch_vram_free))"
+            >{{ sysPctUsed(dev.torch_vram_total, dev.torch_vram_free) }}%</span>
+            <span class="sys-hud__sub">{{ sysGb(dev.torch_vram_total) }}G</span>
+          </div>
+        }
+        <div class="sys-hud__row">
+          <span class="sys-hud__key">RAM</span>
+          <div class="sys-hud__bar">
+            <div
+              class="sys-hud__bar-fill"
+              [style.width.%]="sysPctUsed(stats.ram_total, stats.ram_free)"
+              [style.background]="sysBarColor(sysPctUsed(stats.ram_total, stats.ram_free))"
+            ></div>
+          </div>
+          <span
+            class="sys-hud__pct"
+            [style.color]="sysBarColor(sysPctUsed(stats.ram_total, stats.ram_free))"
+          >{{ sysPctUsed(stats.ram_total, stats.ram_free) }}%</span>
+          <span class="sys-hud__sub">{{ sysGb(stats.ram_total) }}G</span>
+        </div>
+        <div class="sys-hud__footer">
+          ComfyUI v{{ stats.comfyui_version }}&nbsp;&middot;&nbsp;{{ stats.os }}
+          @if (tunnelVersion()) {
+            &nbsp;&middot;&nbsp;
+            <span [class.sys-hud__version-warn]="tunnelVersionMismatch()">
+              Tunnel v{{ tunnelVersion() }}{{ tunnelVersionMismatch() ? ' ⚠ update sidecar' : '' }}
+            </span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

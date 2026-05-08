@@ -1,0 +1,1097 @@
+<div class="app">
+	<app-header />
+
+	<!-- MAIN -->
+	<main class="page">
+		<!-- ================================================================ -->
+		<!-- SHARED: Configurable input — reused in both default + override   -->
+		<!-- ================================================================ -->
+		<ng-template
+			#configurableInput
+			let-config="config"
+			let-templateId="templateId"
+		>
+			@if (
+				config.type === "text" ||
+				config.type === "number" ||
+				config.type === "finalImageWidth" ||
+				config.type === "finalImageHeight" ||
+				config.type === "inputImage"
+			) {
+				<input
+					class="control"
+					[type]="
+						config.type === 'number' ||
+						config.type === 'finalImageWidth' ||
+						config.type === 'finalImageHeight'
+							? 'number'
+							: 'text'
+					"
+					[placeholder]="config.name"
+					[value]="getChange(templateId, config.id)"
+					(input)="setChange(templateId, config.id, $any($event.target).value)"
+				/>
+			} @else if (config.type === "multilineText") {
+				<textarea
+					class="control"
+					[placeholder]="config.name"
+					[value]="getChange(templateId, config.id)"
+					(input)="setChange(templateId, config.id, $any($event.target).value)"
+				></textarea>
+			} @else if (config.type === "preset") {
+				<select
+					class="select"
+					(change)="setChange(templateId, config.id, $any($event.target).value)"
+				>
+					<option value="" disabled>Select a Preset</option>
+					@for (preset of config.presets; track preset) {
+						<option
+							[value]="preset"
+							[selected]="getChange(templateId, config.id) === preset"
+						>
+							{{ preset }}
+						</option>
+					}
+				</select>
+			}
+		</ng-template>
+
+		<!-- ================================================================ -->
+		<!-- STEP 0: API JSON                                                  -->
+		<!-- ================================================================ -->
+		@if (step() == 0) {
+			<section
+				class="panel"
+				style="
+					padding: 0px 8px;
+					display: flex;
+					flex-direction: column;
+					min-height: 320px;
+				"
+			>
+				<div
+					class="grid"
+					style="display: flex; flex-direction: column; flex: 1; min-height: 0"
+				>
+					<div class="output__head">
+						<h2 class="output__title">API JSON</h2>
+					</div>
+
+					<div class="label"><p>Paste your exported API JSON here</p></div>
+					<textarea
+						class="control"
+						style="
+							margin-bottom: 8px;
+							flex: 1 1 auto;
+							min-height: 0;
+							resize: vertical;
+						"
+						placeholder="Paste your API JSON here:"
+						[value]="template().apiData | json"
+						(input)="onJSONInput($event)"
+					></textarea>
+				</div>
+
+				<div
+					style="margin-top: 12px; margin-bottom: 12px"
+					class="btn-row btn-row--right"
+				>
+					<button class="btn" type="button" (click)="completeStep(0)">
+						Next: Configure Your Flow
+					</button>
+				</div>
+			</section>
+		}
+
+		<!-- ================================================================ -->
+		<!-- STEP 1: AUTO-DETECTION REVIEW                                    -->
+		<!-- ================================================================ -->
+		@if (step() == 1) {
+			<section class="panel section">
+				<div class="output__head">
+					<div>
+						<h2 class="output__title">Detected Configurables</h2>
+						<p style="margin: 4px 0 0; font-size: 0.82rem; opacity: 0.55">
+							Check the items you want to expose as user-editable fields. Required
+							items are always included and cannot be unchecked.
+						</p>
+					</div>
+				</div>
+
+				@if (detectedConfigurables().length === 0) {
+					<p style="opacity: 0.5; margin-top: 12px">
+						Nothing could be auto-detected — configure manually in the next step.
+					</p>
+				} @else {
+					@for (item of detectedConfigurables(); track item.id) {
+						<div class="detect-row" [class.detect-row--required]="item.required">
+							<input
+								type="checkbox"
+								class="detect-row__check"
+								[checked]="item.accepted"
+								[disabled]="item.required"
+								(change)="toggleDetected(item.id)"
+							/>
+							<span class="detect-tag detect-tag--{{ item.type }}">{{
+								item.type
+							}}</span>
+							<span class="detect-row__name">{{ item.name }}</span>
+							<span class="detect-row__meta">
+								@if (item.nodeTitle) {
+									<strong class="detect-row__node-title">{{ item.nodeTitle }}</strong>
+								}
+								<code class="detect-row__path">{{ item.target }}</code>
+							</span>
+							<button
+								type="button"
+								class="detect-row__dismiss"
+								title="Detection wrong? Click to remove — configure this field manually in the next step"
+								(click)="dismissDetected(item.id)"
+							>
+								×
+							</button>
+						</div>
+					}
+				}
+
+				<div style="margin-top: 12px" class="btn-row btn-row--right">
+					<button class="btn" type="button" (click)="previousStep(1)">
+						← Back to API JSON
+					</button>
+					<button class="btn" type="button" (click)="completeStep(1)">
+						Apply & Configure →
+					</button>
+				</div>
+			</section>
+		}
+
+		<!-- ================================================================ -->
+		<!-- STEP 2: FLOW DETAILS + CONFIGURABLES                             -->
+		<!-- ================================================================ -->
+		@if (step() == 2) {
+			<section class="panel section">
+				<div class="output__head">
+					<h2 class="output__title">Flow Details</h2>
+				</div>
+
+				<div class="grid-2" style="margin-top: 12px">
+					<!-- LEFT PANEL -->
+					<div class="panel section" style="box-shadow: none">
+						<div style="margin-top: 12px" class="section__head">
+							<h2 class="section__title">Name</h2>
+						</div>
+						<div class="field">
+							<input
+								class="control"
+								type="text"
+								[value]="template().name"
+								(input)="updateFlowName($any($event.target).value)"
+							/>
+						</div>
+
+						<div style="margin-top: 12px" class="section__head">
+							<h2 class="section__title">Description</h2>
+						</div>
+						<div class="field">
+							<input
+								class="control"
+								type="text"
+								[value]="template().description"
+								(input)="updateFlowDescription($any($event.target).value)"
+							/>
+						</div>
+					</div>
+
+					<!-- RIGHT PANEL -->
+					<div class="panel section" style="box-shadow: none">
+						<p>Select Configurations to Expose</p>
+
+						<!-- Icon legend -->
+						<div class="config-legend">
+							<div class="config-legend__row">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+									<circle cx="12" cy="12" r="3" />
+								</svg>
+								<span
+									><strong>Visibility</strong> — hide a field from users while still
+									allowing templates to change its value silently.</span
+								>
+							</div>
+							<div class="config-legend__row">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+									<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+								</svg>
+								<span
+									><strong>Protected</strong> — element is locked on the front end by
+									default and requires the user to explicitly unlock it before
+									editing.</span
+								>
+							</div>
+						</div>
+
+						@for (config of configurablesFrontEnd(); track config.id) {
+							<div class="config-group">
+								<div class="config-group__heading">
+									<h2>{{ config.name }}</h2>
+								</div>
+
+								@for (node of config.configs; track node.name) {
+									<div class="config-row">
+										<div class="config-row__top">
+											<!-- 1. Checkbox -->
+											<input
+												class="config-row__checkbox"
+												type="checkbox"
+												[id]="config.id + '-' + node.name"
+												[checked]="isChecked(node.target!)"
+												(change)="onCheckboxChange(node, $any($event.target).checked)"
+											/>
+											<label
+												class="config-row__name"
+												[class.is-hidden]="!isVisible(node.target!)"
+												[for]="config.id + '-' + node.name"
+											>
+												{{ node.name }}
+											</label>
+
+											<!-- 2. Eye -->
+											<button
+												type="button"
+												class="btn-icon"
+												[disabled]="!isChecked(node.target!)"
+												[attr.aria-label]="isVisible(node.target!) ? 'Hide' : 'Show'"
+												(click)="toggleVisible(node.target!)"
+											>
+												@if (isVisible(node.target!)) {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
+												} @else {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<path
+															d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94"
+														/>
+														<path
+															d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"
+														/>
+														<line x1="1" y1="1" x2="23" y2="23" />
+													</svg>
+												}
+											</button>
+
+											<!-- 3. Lock -->
+											<button
+												type="button"
+												class="btn-icon"
+												[class.is-hidden]="!isProtected(node.target!)"
+												[disabled]="!isChecked(node.target!)"
+												[attr.aria-label]="
+													isProtected(node.target!) ? 'Unprotect' : 'Protect'
+												"
+												(click)="toggleProtected(node.target!)"
+											>
+												@if (isProtected(node.target!)) {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+														<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+													</svg>
+												} @else {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+														<path d="M7 11V7a5 5 0 0 1 9.9-1" />
+													</svg>
+												}
+											</button>
+										</div>
+
+										@if (isChecked(node.target!)) {
+											<!-- Name input -->
+											<div class="config-row__select-wrap">
+												<input
+													class="control"
+													type="text"
+													placeholder="Friendly node name"
+													[value]="getConfigurable(node.target!)?.name ?? ''"
+													(input)="
+														updateConfigurable(node.target!, {
+															name: $any($event.target).value,
+														})
+													"
+												/>
+											</div>
+
+											<!-- Type select + optional presets -->
+											<div
+												class="config-row__select-wrap"
+												[class.is-hidden]="!isVisible(node.target!)"
+											>
+												<div style="display:flex;align-items:center;gap:6px">
+													<select
+														class="select"
+														style="flex:1"
+														(change)="assignNodeType(node, $any($event.target).value)"
+														[disabled]="isLocked(node.target!)"
+													>
+													<option
+														value="positivePrompt"
+														[selected]="getSelectValue(node.target!) === 'positivePrompt'"
+													>
+														Positive Prompt
+													</option>
+													<option
+														value="negativePrompt"
+														[selected]="getSelectValue(node.target!) === 'negativePrompt'"
+													>
+														Negative Prompt
+													</option>
+													<option
+														value="seed"
+														[selected]="getSelectValue(node.target!) === 'seed'"
+													>
+														Seed
+													</option>
+													<option
+														value="number"
+														[selected]="getSelectValue(node.target!) === 'number'"
+													>
+														Number
+													</option>
+													<option
+														value="finalImageWidth"
+														[selected]="getSelectValue(node.target!) === 'finalImageWidth'"
+													>
+														Final Image Width
+													</option>
+													<option
+														value="finalImageHeight"
+														[selected]="getSelectValue(node.target!) === 'finalImageHeight'"
+													>
+														Final Image Height
+													</option>
+													<option
+														value="text"
+														[selected]="getSelectValue(node.target!) === 'text'"
+													>
+														Text
+													</option>
+													<option
+														value="multilineText"
+														[selected]="getSelectValue(node.target!) === 'multilineText'"
+													>
+														Multiline Text
+													</option>
+													<option
+														value="preset"
+														[selected]="getSelectValue(node.target!) === 'preset'"
+													>
+														Preset
+													</option>
+													<option
+														value="lora"
+														[selected]="getSelectValue(node.target!) === 'lora'"
+													>
+														LoRAs
+													</option>
+												</select>
+												@if (!isPermanentlyLocked(node.target!) && (isLocked(node.target!) || unlockedTargets().has(node.target!))) {
+													<button
+														type="button"
+														class="btn-icon"
+														[title]="isLocked(node.target!) ? 'Unlock to change type' : 'Lock type'"
+														(click)="toggleUnlock(node.target!)"
+													>
+														@if (isLocked(node.target!)) {
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+														} @else {
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+														}
+													</button>
+												}
+												</div>
+
+												@if (getType(node.target!) === "preset") {
+													<textarea
+														style="margin-top: 12px"
+														class="control"
+														placeholder="Presets, one option per line"
+														[value]="getPresets(node.target!)"
+														(input)="onPresetsInput(node.target!, $any($event.target).value)"
+													></textarea>
+													<div class="btn-row btn-row--right">
+														<button
+															type="button"
+															class="btn"
+															style="margin-top: 8px; font-size: 0.85rem"
+															(click)="openPresetDialog(node.target!)"
+														>
+															Insert from Server's Library
+														</button>
+													</div>
+												}
+												@if (getType(node.target!) === "lora") {
+													<div class="btn-row btn-row--right">
+														<button
+															type="button"
+															class="btn"
+															style="margin-top: 8px; font-size: 0.85rem"
+															(click)="openLoraPresetPicker(node.target!)"
+														>
+															@let loraCount = getConfigurable(node.target!)?.presets?.length ?? 0;
+															{{ loraCount ? 'LoRAs (' + loraCount + ' selected)' : 'Choose LoRAs from Library' }}
+														</button>
+													</div>
+												}
+											</div>
+											<!-- Binding (number only) -->
+											@if (
+												getType(node.target!) === "number"
+											) {
+												@let cfg = getConfigurable(node.target!);
+												@if (cfg) {
+													<div class="config-row__select-wrap">
+														<div class="bind-container">
+															<div class="bind-row">
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	width="11"
+																	height="11"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	stroke="currentColor"
+																	stroke-width="2.5"
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																>
+																	<path
+																		d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+																	/>
+																	<path
+																		d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+																	/>
+																</svg>
+																@let binding = getBinding(cfg.id);
+																@if (binding) {
+																	<span class="bind-row__source"
+																		>Synced from: {{ getBindingLabel(cfg.id) }}</span
+																	>
+																	<button
+																		type="button"
+																		class="bind-row__unbind"
+																		(click)="clearBinding(cfg.id)"
+																	>
+																		Unbind
+																	</button>
+																} @else {
+																	<span class="bind-row__empty">No binding</span>
+																	<button
+																		type="button"
+																		class="bind-btn"
+																		(click)="toggleBindingPopover(cfg.id, $event)"
+																		title="Bind: auto-sync this value from another input or image dimensions"
+																	>
+																		Set binding
+																	</button>
+																}
+															</div>
+															@if (bindingPopoverFor() === cfg.id) {
+																<div class="bind-popover">
+																	<div class="bind-popover__hint">
+																		Auto-sync this value from another input or image dimensions
+																		when users run the flow.
+																	</div>
+																	@let otherNums = getBindableTargets(cfg.id);
+																	@if (otherNums.length) {
+																		<div class="bind-popover__group-label">Other inputs</div>
+																		@for (other of otherNums; track other.id) {
+																			<button
+																				type="button"
+																				class="bind-popover__item"
+																				(click)="
+																					setBinding(cfg.id, {
+																						type: 'configurable',
+																						configId: other.id,
+																					})
+																				"
+																			>
+																				{{ other.name }}
+																			</button>
+																		}
+																	}
+																	@let imgCfgs = inputImageConfigurables();
+																	@if (imgCfgs.length) {
+																		<div class="bind-popover__group-label">Image dimensions</div>
+																		@for (img of imgCfgs; track img.id) {
+																			<button
+																				type="button"
+																				class="bind-popover__item"
+																				(click)="
+																					setBinding(cfg.id, {
+																						type: 'imageWidth',
+																						imageConfigId: img.id,
+																					})
+																				"
+																			>
+																				{{ img.name }} <span class="bind-popover__dim-tag">W</span>
+																			</button>
+																			<button
+																				type="button"
+																				class="bind-popover__item"
+																				(click)="
+																					setBinding(cfg.id, {
+																						type: 'imageHeight',
+																						imageConfigId: img.id,
+																					})
+																				"
+																			>
+																				{{ img.name }} <span class="bind-popover__dim-tag">H</span>
+																			</button>
+																		}
+																	}
+																	@if (!otherNums.length && !imgCfgs.length) {
+																		<div class="bind-popover__empty">
+																			No bindable sources in this flow yet.
+																		</div>
+																	}
+																</div>
+															}
+														</div>
+													</div>
+												}
+											}
+										}
+									</div>
+								}
+							</div>
+						}
+					</div>
+				</div>
+
+				<div style="margin-top: 12px" class="btn-row btn-row--right">
+					<button class="btn" type="button" (click)="previousStep(2)">
+						← Back to Detected Configurables
+					</button>
+					<button class="btn" type="button" (click)="completeStep(2)">
+						Next: Create Templates
+					</button>
+				</div>
+			</section>
+		}
+
+		<!-- ================================================================ -->
+		<!-- STEP 3: TEMPLATES                                                 -->
+		<!-- ================================================================ -->
+		<section class="panel section" [hidden]="step() !== 3">
+			<div class="output__head">
+				<div>
+					<h2 class="output__title">Templates</h2>
+					@if (template().name) {
+						<p style="margin: 2px 0 0; font-size: 0.82rem; opacity: 0.45">
+							{{ template().name }}
+						</p>
+					}
+				</div>
+			</div>
+
+			<div class="grid-2" style="margin-top: 12px">
+				<!-- LEFT: Template cards -->
+				<div class="panel section" style="box-shadow: none">
+					@for (tmpl of template().templates; track tmpl.id) {
+						<div
+							class="config-group"
+							[class.is-active]="selectedTemplateId() === tmpl.id"
+							(click)="selectedTemplateId.set(tmpl.id)"
+							style="cursor: pointer; margin-bottom: 12px"
+						>
+							<div class="config-group__heading">
+								<h2>
+									{{ tmpl.name || "Untitled Template" }}
+									@if (tmpl.id === "default") {
+										<span style="font-size: 0.7em; opacity: 0.5; margin-left: 6px"
+											>(default)</span
+										>
+									}
+								</h2>
+								@if (tmpl.id !== "default") {
+									<button
+										type="button"
+										class="btn-icon"
+										[class.is-hidden]="!isTemplateProtected(tmpl.id)"
+										[attr.aria-label]="
+											isTemplateProtected(tmpl.id)
+												? 'Unprotect template'
+												: 'Protect template'
+										"
+										(click)="toggleTemplateProtected(tmpl.id); $event.stopPropagation()"
+									>
+										@if (isTemplateProtected(tmpl.id)) {
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+												<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+											</svg>
+										} @else {
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+												<path d="M7 11V7a5 5 0 0 1 9.9-1" />
+											</svg>
+										}
+									</button>
+									<button
+										type="button"
+										class="btn-icon"
+										aria-label="Delete template"
+										(click)="deleteTemplate(tmpl.id); $event.stopPropagation()"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="3 6 5 6 21 6" />
+											<path d="M19 6l-1 14H6L5 6" />
+											<path d="M10 11v6M14 11v6" />
+											<path d="M9 6V4h6v2" />
+										</svg>
+									</button>
+								}
+							</div>
+
+							@if (selectedTemplateId() === tmpl.id) {
+								<div class="field" style="margin-top: 8px">
+									<label class="label">Name</label>
+									<input
+										class="control"
+										type="text"
+										placeholder="Template name"
+										[value]="tmpl.name"
+										(click)="$event.stopPropagation()"
+										(input)="updateTemplate(tmpl.id, { name: $any($event.target).value })"
+									/>
+								</div>
+
+								<div class="field" style="margin-top: 8px">
+									<label class="label">Description</label>
+									<input
+										class="control"
+										type="text"
+										placeholder="Short description"
+										[value]="tmpl.description"
+										(click)="$event.stopPropagation()"
+										(input)="
+											updateTemplate(tmpl.id, { description: $any($event.target).value })
+										"
+									/>
+								</div>
+
+								@for (
+									pt of selectedTemplate().promptTemplates;
+									let i = $index;
+									track $index
+								) {
+									<div class="config-group" style="margin-top: 8px">
+										<div
+											class="config-group__heading"
+											style="cursor: pointer"
+											(click)="togglePromptCollapse(selectedTemplate().id, i)"
+										>
+											<h2>Prompt {{ i + 1 }}</h2>
+											<button
+												type="button"
+												class="btn-icon"
+												[class.is-hidden]="!isPromptProtected(selectedTemplate().id, i)"
+												[attr.aria-label]="
+													isPromptProtected(selectedTemplate().id, i)
+														? 'Unprotect prompt'
+														: 'Protect prompt'
+												"
+												(click)="
+													togglePromptProtected(selectedTemplate().id, i);
+													$event.stopPropagation()
+												"
+											>
+												@if (isPromptProtected(selectedTemplate().id, i)) {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+														<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+													</svg>
+												} @else {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+														<path d="M7 11V7a5 5 0 0 1 9.9-1" />
+													</svg>
+												}
+											</button>
+											<button
+												type="button"
+												class="btn-icon"
+												aria-label="Remove prompt"
+												(click)="
+													removePromptTemplate(selectedTemplate().id, i);
+													$event.stopPropagation()
+												"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<polyline points="3 6 5 6 21 6" />
+													<path d="M19 6l-1 14H6L5 6" />
+													<path d="M10 11v6M14 11v6" />
+													<path d="M9 6V4h6v2" />
+												</svg>
+											</button>
+										</div>
+
+										@if (!isPromptCollapsed(selectedTemplate().id, i)) {
+											<div class="field" style="margin-top: 8px">
+												<label class="label">Positive</label>
+												<textarea
+													class="control"
+													rows="3"
+													placeholder="Positive prompt…"
+													(input)="
+														updatePromptTemplate(selectedTemplate().id, i, {
+															positive: $any($event.target).value,
+														})
+													"
+													>{{ pt.positive }}</textarea
+												>
+											</div>
+
+											<div class="field" style="margin-top: 8px">
+												<label class="label">Negative</label>
+												<textarea
+													class="control"
+													rows="3"
+													placeholder="Negative prompt…"
+													(input)="
+														updatePromptTemplate(selectedTemplate().id, i, {
+															negative: $any($event.target).value,
+														})
+													"
+													>{{ pt.negative }}</textarea
+												>
+											</div>
+										}
+									</div>
+								}
+
+								<div class="btn-row" style="margin-top: 8px">
+									<button
+										class="btn"
+										type="button"
+										(click)="addPromptTemplate(selectedTemplate().id)"
+									>
+										+ Add Prompt
+									</button>
+								</div>
+							}
+						</div>
+					}
+					<button class="btn" type="button" (click)="addTemplate()" style="margin-top: 8px">
+						+ Add Template
+					</button>
+				</div>
+
+				<div class="panel section" style="box-shadow: none">
+					<hr style="margin-bottom: 20px; opacity: 0.2" />
+
+					@if (nonCoreConfigurables().length === 0) {
+						<p style="opacity: 0.5">
+							No configurables set up yet. Add some in the step above.
+						</p>
+					} @else {
+						@if (selectedTemplate().id === "default") {
+							<!-- DEFAULT: every non-core configurable must have a value -->
+							<p style="margin-bottom: 12px">
+								Set a default value for each configurable. These apply to all templates
+								unless overridden.
+							</p>
+
+							@for (config of nonCoreConfigurables(); track config.id) {
+								<div class="field" style="margin-bottom: 12px">
+									<label class="label">{{ config.name }}</label>
+									<ng-container
+										*ngTemplateOutlet="
+											configurableInput;
+											context: { config, templateId: selectedTemplate().id }
+										"
+									></ng-container>
+								</div>
+							}
+						} @else {
+							<!-- NON-DEFAULT: opt-in overrides only -->
+							<p style="margin-bottom: 12px">
+								Check a configurable to override its default value in this template.
+							</p>
+
+							@for (config of nonCoreConfigurables(); track config.id) {
+								<div class="config-row" style="margin-bottom: 12px">
+									<div class="config-row__top">
+										<input
+											class="config-row__checkbox"
+											type="checkbox"
+											[id]="'tmpl-' + selectedTemplate().id + '-' + config.id"
+											[checked]="hasChange(selectedTemplate().id, config.id)"
+											(change)="
+												toggleChange(
+													selectedTemplate().id,
+													config.id,
+													$any($event.target).checked
+												)
+											"
+										/>
+										<label
+											class="config-row__name"
+											[for]="'tmpl-' + selectedTemplate().id + '-' + config.id"
+										>
+											{{ config.name }}
+										</label>
+									</div>
+
+									@if (hasChange(selectedTemplate().id, config.id)) {
+										<div class="config-row__select-wrap" style="margin-top: 6px">
+											<ng-container
+												*ngTemplateOutlet="
+													configurableInput;
+													context: { config, templateId: selectedTemplate().id }
+												"
+											></ng-container>
+										</div>
+									}
+								</div>
+							}
+						}
+					}
+				</div>
+			</div>
+
+			<div style="margin-top: 12px" class="btn-row btn-row--right">
+				<button class="btn" type="button" (click)="previousStep(3)">
+					Previous: Configure Your Flow
+				</button>
+				<button class="btn" type="button" (click)="finalize()">
+					{{ updateMode ? "Update" : "Save" }} Your Flow
+				</button>
+			</div>
+		</section>
+
+		<!-- ================================================================ -->
+		<!-- PRESET LIBRARY DIALOG                                            -->
+		<!-- ================================================================ -->
+		<div
+			class="backdrop"
+			[attr.data-open]="presetDialogTarget() ? 'true' : 'false'"
+			(click)="closePresetDialog()"
+		>
+			<div class="dialog" (click)="$event.stopPropagation()">
+				<div class="dialog__head">
+					<h2 class="dialog__title">
+						@if (loraPicker()) {
+							Select LoRAs
+						} @else {
+							Insert from Library
+						}
+					</h2>
+					<button
+						type="button"
+						class="btn-icon"
+						aria-label="Close"
+						(click)="closePresetDialog()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+				<div class="dialog__body">
+					@if (loraPicker(); as picker) {
+						<div class="btn-row" style="margin-bottom: 12px">
+							<button type="button" class="btn" (click)="closeLoraPicker()">
+								&#8592; Back
+							</button>
+							<div style="flex:1"></div>
+							<button type="button" class="btn" (click)="setAllLoraSelections(true)">Select All</button>
+							<button type="button" class="btn" (click)="setAllLoraSelections(false)">Deselect All</button>
+						</div>
+						@if (picker.items.length === 0) {
+							<p class="dialog__msg">No LoRAs found on this server.</p>
+						} @else {
+							<div class="lora-picker-list">
+								@for (item of picker.items; track item) {
+									<label class="lora-picker-item">
+										<input
+											type="checkbox"
+											[checked]="picker.selected.has(item)"
+											(change)="toggleLoraSelection(item)"
+										/>
+										<span>{{ item }}</span>
+									</label>
+								}
+							</div>
+						}
+						<div class="btn-row btn-row--right" style="margin-top: 12px">
+							<button type="button" class="btn btn--primary" (click)="insertSelectedLoras()">
+								Insert Selected ({{ picker.selected.size }})
+							</button>
+						</div>
+					} @else {
+						<p class="dialog__msg">
+							Choose a source to fill the preset options. This will replace any existing
+							entries.
+						</p>
+						<div style="display: grid; gap: 8px">
+							<button type="button" class="btn" (click)="openLoraPicker()">
+								Insert LoRAs
+							</button>
+							<button
+								type="button"
+								class="btn"
+								(click)="insertPresets(models.checkpoints)"
+							>
+								Insert Checkpoints
+							</button>
+							<button
+								type="button"
+								class="btn"
+								(click)="insertPresets(models.textEncoders)"
+							>
+								Insert Text Encoders
+							</button>
+							<button
+								type="button"
+								class="btn"
+								(click)="insertPresets(models.diffusionModels)"
+							>
+								Insert Diffusion Models
+							</button>
+							<button
+								type="button"
+								class="btn"
+								(click)="insertPresets(models.clipVisions)"
+							>
+								Insert Clip Visions
+							</button>
+							<button
+								type="button"
+								class="btn"
+								(click)="insertPresets(models.controlnets)"
+							>
+								Insert Controlnets
+							</button>
+							<button
+								type="button"
+								class="btn"
+								(click)="insertPresets(models.modelPatches)"
+							>
+								Insert Model Patches
+							</button>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<app-footer />
+</div>

@@ -1,0 +1,71 @@
+<div class="gallery-mode" [class.gallery-mode--active]="active()">
+
+  <!-- Header: counter + close -->
+  <div class="gallery-mode__header">
+    <span class="gallery-mode__counter">{{ activeIndex() + 1 }} / {{ assets().length }}</span>
+    <button class="btn-icon gallery-mode__close" type="button" title="Close (Esc)" (click)="closed.emit()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        width="17" height="17">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Stage: prev arrow + image + next arrow -->
+  <div class="gallery-mode__stage">
+    <button class="gallery-mode__arrow gallery-mode__arrow--prev" type="button"
+      [disabled]="assets().length <= 1" (click)="navigate(-1); $any($event.currentTarget).blur()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        width="24" height="24">
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+    </button>
+
+    <div class="gallery-mode__img-wrap">
+      @if (current(); as asset) {
+        <img class="gallery-mode__img" [src]="asset.url" [alt]="asset.filename" />
+      }
+    </div>
+
+    <button class="gallery-mode__arrow gallery-mode__arrow--next" type="button"
+      [disabled]="assets().length <= 1" (click)="navigate(1); $any($event.currentTarget).blur()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        width="24" height="24">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Metadata -->
+  @if (current(); as asset) {
+    <div class="gallery-mode__meta">
+      <span class="gallery-mode__filename">{{ asset.filename }}</span>
+      @if (asset.promptPositive) {
+        <span class="gallery-mode__prompt">{{ asset.promptPositive }}</span>
+      }
+      @if (asset.seed) {
+        <span class="gallery-mode__seed">Seed: {{ asset.seed }}</span>
+      }
+    </div>
+  }
+
+  <!-- Filmstrip -->
+  <div class="gallery-mode__filmstrip" #filmstrip>
+    @for (asset of assets(); track asset.id; let i = $index) {
+      <button
+        class="gallery-mode__thumb"
+        [class.gallery-mode__thumb--active]="i === activeIndex()"
+        type="button"
+        [title]="asset.filename"
+        (click)="goTo(i, $any($event.currentTarget))"
+      >
+        <img [src]="asset.url" [alt]="asset.filename" loading="lazy" />
+        <span class="gallery-mode__thumb-name">{{ asset.filename }}</span>
+      </button>
+    }
+  </div>
+
+</div>

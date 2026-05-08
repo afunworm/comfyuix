@@ -1,0 +1,14 @@
+<div class="backdrop" data-open="true" style="background: var(--bg)">
+	<div class="dialog" style="width: min(460px, 100%)">
+		<div class="dialog__head">
+			<h2 class="dialog__title">Signing In</h2>
+		</div>
+		<div class="dialog__body">
+			@if (error) {
+				<p class="dialog__msg" style="color: var(--danger)">{{ error }}</p>
+			} @else {
+				<p class="dialog__msg">Verifying your link…</p>
+			}
+		</div>
+	</div>
+</div>

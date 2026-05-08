@@ -1,0 +1,34 @@
+<div class="backdrop" data-open="true" style="background: var(--bg)">
+	<div class="dialog" style="width: min(460px, 100%)">
+		<div class="dialog__head">
+			<h2 class="dialog__title">Confirm Email Change</h2>
+		</div>
+
+		@if (loading) {
+			<div class="dialog__body">
+				<p class="dialog__msg" style="opacity: 0.5">Verifying…</p>
+			</div>
+		} @else if (done) {
+			<div class="dialog__body">
+				<p class="dialog__msg">
+					Your email address has been updated. You can now sign in with your new
+					address.
+				</p>
+			</div>
+			<div class="dialog__foot">
+				<button class="btn btn--primary" (click)="goToAccount()">
+					Go to Account
+				</button>
+			</div>
+		} @else {
+			<div class="dialog__body">
+				<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+					{{ error }}
+				</div>
+			</div>
+			<div class="dialog__foot">
+				<button class="btn" (click)="goToAccount()">Go to Account</button>
+			</div>
+		}
+	</div>
+</div>

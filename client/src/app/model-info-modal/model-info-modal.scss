@@ -1,0 +1,204 @@
+.model-info-modal__dialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: min(760px, 92vw);
+	max-height: 85vh;
+	display: flex;
+	flex-direction: column;
+	z-index: 200;
+}
+
+.model-info-modal__body {
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	padding: 20px;
+}
+
+.model-info-modal__section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid var(--border);
+
+	&:last-child { border-bottom: none; }
+}
+
+.model-info-modal__heading {
+	font-size: 0.95rem;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+
+.model-info-modal__row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+}
+
+.model-info-modal__field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 0.85rem;
+}
+
+.model-info-modal__label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--muted);
+}
+
+.model-info-modal__tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.model-info-modal__tag {
+	font-size: 0.78rem;
+	padding: 2px 8px;
+	border-radius: var(--radius);
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+	color: var(--accent);
+	border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.model-info-modal__loading {
+	font-size: 0.85rem;
+	color: var(--muted);
+	margin: 0;
+}
+
+.model-info-modal__error {
+	font-size: 0.85rem;
+	color: var(--danger);
+	margin: 0;
+}
+
+.model-info-modal__raw {
+	font-size: 0.8rem;
+
+	summary {
+		cursor: pointer;
+		color: var(--muted);
+		padding: 4px 0;
+		user-select: none;
+	}
+
+	pre {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 10px;
+		overflow-x: auto;
+		white-space: pre-wrap;
+		word-break: break-all;
+		max-height: 300px;
+		overflow-y: auto;
+		font-size: 0.75rem;
+	}
+}
+
+// ── CivitAI image gallery ─────────────────────────────────────────────────────
+
+.model-info-modal__gallery {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 12px;
+	background: var(--surface);
+}
+
+.model-info-modal__gallery-nav {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.model-info-modal__gallery-counter {
+	font-size: 0.82rem;
+	color: var(--muted);
+	flex: 1;
+	text-align: center;
+}
+
+.model-info-modal__gallery-img {
+	img {
+		width: 100%;
+		max-height: 420px;
+		object-fit: contain;
+		border-radius: calc(var(--radius) - 2px);
+		display: block;
+		background: #000;
+	}
+}
+
+.model-info-modal__gallery-nsfw {
+	width: 100%;
+	height: 200px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+	border: 1px dashed color-mix(in srgb, var(--danger) 40%, transparent);
+	border-radius: calc(var(--radius) - 2px);
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.model-info-modal__gallery-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.model-info-modal__gallery-prompt {
+	font-size: 0.78rem;
+	white-space: pre-wrap;
+	word-break: break-word;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 8px;
+	margin: 0;
+	max-height: 140px;
+	overflow-y: auto;
+	line-height: 1.5;
+}
+
+// ── Safetensors metadata table ────────────────────────────────────────────────
+
+.model-info-modal__meta-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.8rem;
+	font-family: monospace;
+
+	td {
+		padding: 2px 8px 2px 0;
+		vertical-align: top;
+		word-break: break-all;
+	}
+}
+
+.model-info-modal__meta-key {
+	white-space: nowrap;
+	color: var(--muted);
+	padding-right: 16px !important;
+	min-width: 180px;
+}
+
+.model-info-modal__meta-val {
+	color: var(--text);
+}

@@ -1,0 +1,185 @@
+<div class="app">
+	<app-header />
+
+	<main class="page">
+		<!-- ================================================================ -->
+		<!-- CHANGE PASSWORD                                                   -->
+		<!-- ================================================================ -->
+		<section class="panel section" style="margin-bottom: 20px">
+			<div class="output__head">
+				<h2 class="output__title">Change Password</h2>
+			</div>
+
+			<div style="display: grid; gap: 14px; padding-top: 4px">
+				<div class="field">
+					<label class="label" for="current-pw">Current Password</label>
+					<input
+						id="current-pw"
+						class="control"
+						type="password"
+						[(ngModel)]="currentPasswordForPw"
+					/>
+				</div>
+				<div class="grid-2">
+					<div class="field">
+						<label class="label" for="new-pw">New Password</label>
+						<input
+							id="new-pw"
+							class="control"
+							type="password"
+							[(ngModel)]="newPassword"
+						/>
+					</div>
+					<div class="field">
+						<label class="label" for="confirm-pw">Confirm New Password</label>
+						<input
+							id="confirm-pw"
+							class="control"
+							type="password"
+							[(ngModel)]="confirmPassword"
+							(keydown.enter)="submitPasswordChange()"
+						/>
+					</div>
+				</div>
+
+				@if (pwError) {
+					<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+						{{ pwError }}
+					</div>
+				}
+				@if (pwSuccess) {
+					<div class="inset" style="padding: 10px 12px; color: var(--accent)">
+						{{ pwSuccess }}
+					</div>
+				}
+
+				<div class="btn-row btn-row--right">
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="
+							pwLoading || !currentPasswordForPw || !newPassword || !confirmPassword
+						"
+						(click)="submitPasswordChange()"
+					>
+						{{ pwLoading ? "Saving…" : "Update Password" }}
+					</button>
+				</div>
+			</div>
+		</section>
+
+		<!-- ================================================================ -->
+		<!-- CHANGE EMAIL                                                      -->
+		<!-- ================================================================ -->
+		<section class="panel section">
+			<div class="output__head">
+				<h2 class="output__title">Change Email</h2>
+			</div>
+
+			<div style="display: grid; gap: 14px; padding-top: 4px">
+				<div class="field">
+					<label class="label" for="current-pw-email">Current Password</label>
+					<input
+						id="current-pw-email"
+						class="control"
+						type="password"
+						[(ngModel)]="currentPasswordForEmail"
+					/>
+				</div>
+				<div class="field">
+					<label class="label" for="new-email">New Email Address</label>
+					<input
+						id="new-email"
+						class="control"
+						type="email"
+						[(ngModel)]="newEmail"
+						(keydown.enter)="submitEmailChange()"
+					/>
+				</div>
+
+				@if (emailError) {
+					<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+						{{ emailError }}
+					</div>
+				}
+				@if (emailSuccess) {
+					<div class="inset" style="padding: 10px 12px; color: var(--accent)">
+						{{ emailSuccess }}
+					</div>
+				}
+
+				<div class="btn-row btn-row--right">
+					<button
+						class="btn btn--primary"
+						type="button"
+						[disabled]="emailLoading || !currentPasswordForEmail || !newEmail"
+						(click)="submitEmailChange()"
+					>
+						{{ emailLoading ? "Sending…" : "Send Verification Link" }}
+					</button>
+				</div>
+			</div>
+		</section>
+		<!-- ================================================================ -->
+		<!-- API TOKENS                                                        -->
+		<!-- ================================================================ -->
+		<section class="panel section" style="margin-top: 20px">
+			<div class="output__head">
+				<h2 class="output__title">API Tokens</h2>
+			</div>
+			<p style="opacity: 0.6; font-size: 0.85rem; margin-bottom: 16px">
+				Used for downloading models. Tokens are stored per-account and injected
+				automatically when downloading from HuggingFace or CivitAI.
+			</p>
+
+			@if (tokensLoading) {
+				<p style="opacity: 0.5">Loading…</p>
+			} @else {
+				<div style="display: grid; gap: 14px">
+					<div class="field">
+						<label class="label" for="hf-token">HuggingFace Token</label>
+						<input
+							id="hf-token"
+							class="control"
+							type="password"
+							placeholder="hf_..."
+							[(ngModel)]="hfToken"
+						/>
+					</div>
+					<div class="field">
+						<label class="label" for="civitai-token">CivitAI Token</label>
+						<input
+							id="civitai-token"
+							class="control"
+							type="password"
+							[(ngModel)]="civitaiToken"
+						/>
+					</div>
+
+					@if (tokensError) {
+						<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+							{{ tokensError }}
+						</div>
+					}
+					@if (tokensSuccess) {
+						<div class="inset" style="padding: 10px 12px; color: var(--accent)">
+							{{ tokensSuccess }}
+						</div>
+					}
+
+					<div class="btn-row btn-row--right">
+						<button
+							class="btn btn--primary"
+							type="button"
+							[disabled]="tokensSaving"
+							(click)="saveApiTokens()"
+						>
+							{{ tokensSaving ? "Saving…" : "Save Tokens" }}
+						</button>
+					</div>
+				</div>
+			}
+		</section>
+	</main>
+	<app-footer />
+</div>

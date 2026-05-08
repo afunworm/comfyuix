@@ -1,0 +1,275 @@
+<div class="backdrop" data-open="true" style="background: var(--bg)">
+	<div class="dialog" style="width: min(460px, 100%)">
+		<div class="dialog__head">
+			<h2 class="dialog__title">
+				@if (mode === "signup") {
+					Create Account
+				} @else {
+					Sign In
+				}
+			</h2>
+			@if ((mode === "code" || mode === "forgot") && codeSent) {
+				<span class="badge--accent badge">
+					<span class="badge__dot"></span>
+					Link Sent
+				</span>
+			}
+		</div>
+
+		<!-- Method tabs -->
+		<div class="btn-row" style="padding: 12px 14px 0; gap: 6px">
+			<button
+				class="btn"
+				[class.btn--primary]="mode === 'password' || mode === 'forgot'"
+				style="flex: 1"
+				(click)="switchMode('password')"
+			>
+				Password
+			</button>
+			<button
+				class="btn"
+				[class.btn--primary]="mode === 'code'"
+				style="flex: 1"
+				(click)="switchMode('code')"
+			>
+				Email Link
+			</button>
+			@if (signupsEnabled()) {
+				<button
+					class="btn"
+					[class.btn--primary]="mode === 'signup'"
+					style="flex: 1"
+					(click)="switchMode('signup')"
+				>
+					Sign Up
+				</button>
+			}
+		</div>
+
+		<hr class="divider" style="margin: 4px 14px" />
+
+		<!-- Password login -->
+		@if (mode === "password") {
+			<div class="dialog__body">
+				<div class="field">
+					<label class="label" for="username">Email or Username</label>
+					<input
+						id="username"
+						class="control"
+						type="text"
+						[(ngModel)]="username"
+						(keydown.enter)="passwordField.focus()"
+					/>
+				</div>
+				<div class="field">
+					<label class="label" for="password">Password</label>
+					<input
+						#passwordField
+						id="password"
+						class="control"
+						type="password"
+						[(ngModel)]="password"
+						(keydown.enter)="loginWithPassword()"
+					/>
+				</div>
+				<button
+					class="btn"
+					style="margin-top: 4px; font-size: 0.8em; opacity: 0.7"
+					(click)="switchMode('forgot')"
+				>
+					Forgot your password?
+				</button>
+			</div>
+		}
+
+		<!-- Email link login -->
+		@if (mode === "code") {
+			@if (!codeSent) {
+				<div class="dialog__body">
+					<div class="field">
+						<label class="label" for="email">Email Address</label>
+						<input
+							id="email"
+							class="control"
+							type="email"
+							[(ngModel)]="email"
+							(keydown.enter)="sendMagicLink()"
+						/>
+					</div>
+				</div>
+			} @else {
+				<div class="dialog__body">
+					<p class="dialog__msg">
+						A sign-in link was sent to <strong>{{ email }}</strong
+						>. Click the link in your email to continue. The link expires in 15
+						minutes.
+					</p>
+				</div>
+			}
+		}
+
+		<!-- Forgot password -->
+		@if (mode === "forgot") {
+			@if (!codeSent) {
+				<div class="dialog__body">
+					<p class="dialog__msg">
+						Enter your email and we'll send you a link to reset your password.
+					</p>
+					<div class="field">
+						<label class="label" for="forgot-email">Email Address</label>
+						<input
+							id="forgot-email"
+							class="control"
+							type="email"
+							placeholder="you@example.com"
+							[(ngModel)]="email"
+							(keydown.enter)="sendPasswordReset()"
+						/>
+					</div>
+				</div>
+			} @else {
+				<div class="dialog__body">
+					<p class="dialog__msg">
+						A password reset link was sent to <strong>{{ email }}</strong
+						>. Click the link in your email to choose a new password. The link expires
+						in 1 hour.
+					</p>
+				</div>
+			}
+		}
+
+		<!-- Sign up -->
+		@if (mode === "signup" && signupsEnabled()) {
+			@if (!signupDone) {
+				<div class="dialog__body">
+					<div class="field">
+						<label class="label" for="su-username">Username</label>
+						<input
+							id="su-username"
+							class="control"
+							type="text"
+							placeholder="choose a username"
+							[(ngModel)]="signupUsername"
+							(keydown.enter)="suEmailField.focus()"
+						/>
+					</div>
+					<div class="field">
+						<label class="label" for="su-email">Email Address</label>
+						<input
+							#suEmailField
+							id="su-email"
+							class="control"
+							type="email"
+							placeholder="you@example.com"
+							[(ngModel)]="signupEmail"
+							(keydown.enter)="suPasswordField.focus()"
+						/>
+					</div>
+					<div class="field">
+						<label class="label" for="su-password">Password</label>
+						<input
+							#suPasswordField
+							id="su-password"
+							class="control"
+							type="password"
+							placeholder="choose a password"
+							[(ngModel)]="signupPassword"
+							(keydown.enter)="suConfirmField.focus()"
+						/>
+					</div>
+					<div class="field">
+						<label class="label" for="su-confirm">Confirm Password</label>
+						<input
+							#suConfirmField
+							id="su-confirm"
+							class="control"
+							type="password"
+							placeholder="repeat your password"
+							[(ngModel)]="signupConfirmPassword"
+							(keydown.enter)="signup()"
+						/>
+					</div>
+				</div>
+			} @else {
+				<div class="dialog__body">
+					<p class="dialog__msg">
+						Account created! Check your email at <strong>{{ signupEmail }}</strong>
+						and click the verification link to activate your account.
+					</p>
+				</div>
+			}
+		}
+
+		<!-- Error -->
+		@if (error) {
+			<div style="padding: 0 14px">
+				<div class="inset" style="padding: 10px 12px; color: var(--danger)">
+					{{ error }}
+				</div>
+			</div>
+		}
+
+		<!-- Actions -->
+		<div class="dialog__foot">
+			@if ((mode === "code" || mode === "forgot") && codeSent) {
+				<button class="btn" (click)="codeSent = false; error = ''">Back</button>
+			}
+
+			@if (mode === "forgot" && !codeSent) {
+				<button class="btn" (click)="switchMode('password')">Back</button>
+			}
+
+			@if (mode === "signup" && signupDone) {
+				<button class="btn btn--primary" (click)="switchMode('password')">
+					Go to Sign In
+				</button>
+			}
+
+			@if (mode === "password") {
+				<button
+					class="btn btn--primary"
+					[disabled]="loading || !username || !password"
+					(click)="loginWithPassword()"
+				>
+					{{ loading ? "Signing in…" : "Sign In" }}
+				</button>
+			}
+
+			@if (mode === "code" && !codeSent) {
+				<button
+					class="btn btn--primary"
+					[disabled]="loading || !email"
+					(click)="sendMagicLink()"
+				>
+					{{ loading ? "Sending…" : "Send Link" }}
+				</button>
+			}
+
+			@if (mode === "forgot" && !codeSent) {
+				<button
+					class="btn btn--primary"
+					[disabled]="loading || !email"
+					(click)="sendPasswordReset()"
+				>
+					{{ loading ? "Sending…" : "Send Reset Link" }}
+				</button>
+			}
+
+			@if (mode === "signup" && !signupDone) {
+				<button
+					class="btn btn--primary"
+					[disabled]="
+						loading ||
+						!signupUsername ||
+						!signupEmail ||
+						!signupPassword ||
+						!signupConfirmPassword
+					"
+					(click)="signup()"
+				>
+					{{ loading ? "Creating…" : "Create Account" }}
+				</button>
+			}
+		</div>
+	</div>
+</div>

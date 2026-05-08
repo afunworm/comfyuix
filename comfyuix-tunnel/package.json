@@ -1,0 +1,12 @@
+{
+	"name": "comfyuix-tunnel",
+	"version": "0.0.13",
+	"description": "Reverse tunnel for ComfyUIX — connects outbound to the ComfyUIX server so ComfyUI needs no open port.",
+	"main": "index.js",
+	"scripts": {
+		"start": "node index.js"
+	},
+	"dependencies": {
+		"ws": "^8.18.0"
+	}
+}

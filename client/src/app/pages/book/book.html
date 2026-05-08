@@ -1,0 +1,2404 @@
+<div class="app">
+	<!-- FLOWS & TEMPLATES SIDEBAR -->
+	<div class="flows-sidebar" [class.flows-sidebar--open]="flowsOverlayVisible()">
+		<div
+			class="flows-sidebar__backdrop"
+			(click)="flowsOverlayVisible.set(false)"
+		></div>
+		<div class="flows-sidebar__panel">
+			<div class="flows-sidebar__cols">
+				<!-- Workflows column -->
+				<div class="flows-sidebar__col">
+					<div class="flows-sidebar__col-head">
+						<h3 class="flows-sidebar__col-title">Workflows</h3>
+					</div>
+					<div class="flows-sidebar__col-body">
+						<div class="label">Select the main workflow to run.</div>
+						<div
+							class="inset option-list__list"
+							role="radiogroup"
+							aria-label="Workflow Selection"
+						>
+							@for (flow of flows(); track flow.id) {
+								<label class="option">
+									<input
+										type="radio"
+										name="workflow"
+										[value]="flow.id"
+										[checked]="selectedFlow() === flow.id"
+										(change)="onWorkflowChange(flow.id!)"
+									/>
+									<div>
+										<div class="option__name">{{ flow.name }}</div>
+										<div class="option__desc">{{ flow.description }}</div>
+									</div>
+								</label>
+							}
+						</div>
+					</div>
+				</div>
+
+				<!-- Templates column -->
+				<div class="flows-sidebar__col flows-sidebar__col--right">
+					<div class="flows-sidebar__col-head">
+						<h3 class="flows-sidebar__col-title">Templates</h3>
+					</div>
+					<div class="flows-sidebar__col-body">
+						<div class="label">Pre-defined presets for the selected workflow.</div>
+						@if (activeFlow()?.templates?.length) {
+							<div
+								class="inset option-list__list"
+								role="radiogroup"
+								aria-label="Template Selection"
+							>
+								@for (template of activeFlow()?.templates ?? []; track template.id) {
+									@if (!contentLocked() || !template.protected) {
+										<label class="option">
+											<input
+												type="radio"
+												name="template"
+												[value]="template.id"
+												[checked]="selectedTemplate() === template.id"
+												(change)="onTemplateChange(template.id)"
+											/>
+											<div>
+												<div class="option__name">{{ template.name }}</div>
+												@if (template.description.trim()) {
+													<div class="option__desc">{{ template.description }}</div>
+												}
+											</div>
+										</label>
+									}
+								}
+							</div>
+						} @else {
+							<p class="muted">No templates available for this flow.</p>
+						}
+					</div>
+				</div>
+			</div>
+
+			<!-- Footer: current selection + confirm -->
+			<div class="flows-sidebar__footer">
+				<div class="flows-sidebar__selection">
+					@if (activeFlow()) {
+						<svg
+							class="flows-sidebar__sel-icon"
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="20 6 9 17 4 12" />
+						</svg>
+						<span class="flows-sidebar__sel-flow">{{ activeFlow()?.name }}</span>
+						@if (activeTemplate()) {
+							<span class="flows-sidebar__sel-sep">›</span>
+							<span class="flows-sidebar__sel-template">{{
+								activeTemplate()?.name
+							}}</span>
+						}
+					} @else {
+						<span class="flows-sidebar__sel-none">No flow selected</span>
+					}
+				</div>
+				<button
+					class="btn btn--primary"
+					type="button"
+					(click)="flowsOverlayVisible.set(false)"
+					[disabled]="!activeTemplate()"
+				>
+					Use Template
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- CONSOLE OVERLAY -->
+	<div
+		class="console-overlay"
+		[class.console-overlay--open]="consoleOverlayVisible()"
+	>
+		<div class="console-overlay__head">
+			<div style="display: flex; align-items: center; gap: 10px">
+				<span class="output__title" style="font-size: 0.85rem">Console</span>
+				<button
+					type="button"
+					class="btn-icon"
+					[class.btn-icon--active]="showLastPrompt()"
+					[title]="showLastPrompt() ? 'Back to log' : 'View last sent prompt'"
+					(click)="showLastPrompt.set(!showLastPrompt())"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+					</svg>
+				</button>
+			</div>
+			<div style="display: flex; align-items: center; gap: 8px">
+				<div
+					class="progress"
+					role="progressbar"
+					[hidden]="!showProgressBar()"
+					style="width: 120px; margin: 0"
+				>
+					<div
+						class="progress__bar"
+						[ngStyle]="{ width: progressBarProgress() + '%' }"
+					></div>
+				</div>
+				<button
+					type="button"
+					class="btn-icon"
+					aria-label="Close console"
+					(click)="consoleOverlayVisible.set(false)"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<polyline points="18 15 12 9 6 15" />
+					</svg>
+				</button>
+			</div>
+		</div>
+		<div #consoleWrapper id="consoleWrapper" class="console-overlay__body">
+			<div class="console-overlay__prompt" [hidden]="!showLastPrompt()">
+				<pre>{{ lastPromptJson() ?? 'No prompt sent yet.' }}</pre>
+			</div>
+			<div
+				#console
+				class="output__body"
+				role="log"
+				aria-live="polite"
+				style="height: 100%"
+				[hidden]="showLastPrompt()"
+			>
+				<div class="console" aria-label="Console Output" tabindex="0">
+					@for (log of logs(); track log) {
+						<div style="display: flex; gap: 5px">
+							<span class="muted" style="flex-shrink: 0">[{{ log.time }}]</span>
+							<span [class]="log.type" [innerHTML]="log.message"></span>
+						</div>
+					}
+					<spinner
+						preset="classic"
+						[speedMs]="111"
+						[hidden]="!isLoading()"
+					></spinner>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- THREE-COLUMN LAYOUT -->
+	<div class="layout">
+		<!-- LEFT SIDEBAR: Gallery -->
+		@if (galleryVisible()) {
+			<div class="gallery-sidebar-backdrop" (click)="closeGallery()"></div>
+		}
+		<aside
+			class="gallery-sidebar"
+			[class.gallery-sidebar--hidden]="!galleryVisible()"
+		>
+			<div class="gallery-sidebar__head">
+				<h2 class="gallery-sidebar__title">Gallery</h2>
+				<div style="display: flex; align-items: center; gap: 6px">
+					<button
+						type="button"
+						class="btn"
+						style="font-size: 0.72rem; padding: 4px 10px"
+						[class.btn--primary]="gallerySelectMode()"
+						(click)="toggleSelectMode()"
+					>
+						{{ gallerySelectMode() ? "Cancel" : "Select Mode" }}
+					</button>
+					<button
+						type="button"
+						class="btn-icon"
+						aria-label="Close gallery"
+						(click)="closeGallery()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				</div>
+			</div>
+
+			@if (gallerySelectMode() && selectedAssetIds().size > 0) {
+				<div class="gallery-sidebar__select-bar">
+					<span class="gallery-sidebar__select-count"
+						>{{ selectedAssetIds().size }} selected</span
+					>
+					<span style="flex: 1"></span>
+					<button
+						type="button"
+						class="btn"
+						style="font-size: 0.72rem; padding: 4px 10px"
+						(click)="viewSelectedInGalleryMode()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							style="width: 13px; height: 13px"
+						>
+							<rect x="2" y="7" width="5" height="10" rx="1" />
+							<rect x="9.5" y="4" width="5" height="16" rx="1" />
+							<rect x="17" y="7" width="5" height="10" rx="1" />
+						</svg>
+						View ({{ selectedAssetIds().size }})
+					</button>
+					<button
+						type="button"
+						class="btn gallery-sidebar__delete-btn"
+						(click)="bulkDeleteSelected()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							style="width: 13px; height: 13px"
+						>
+							<polyline points="3 6 5 6 21 6" />
+							<path d="M19 6l-1 14H6L5 6" />
+							<path d="M10 11v6" />
+							<path d="M14 11v6" />
+							<path d="M9 6V4h6v2" />
+						</svg>
+						Delete {{ selectedAssetIds().size }}
+					</button>
+				</div>
+			}
+
+			<div class="gallery-sidebar__tabs">
+				<button
+					class="gallery-sidebar__tab"
+					type="button"
+					[class.gallery-sidebar__tab--active]="galleryTab() === 'input'"
+					(click)="galleryTab.set('input')"
+				>
+					Input Images
+				</button>
+				<button
+					class="gallery-sidebar__tab"
+					type="button"
+					[class.gallery-sidebar__tab--active]="galleryTab() === 'output'"
+					(click)="galleryTab.set('output')"
+				>
+					History
+				</button>
+
+				<div class="gallery-sidebar__scope">
+					<button
+						type="button"
+						class="gallery-sidebar__scope-btn"
+						[class.gallery-sidebar__scope-btn--active]="
+							galleryBookFilter() === 'this'
+						"
+						(click)="galleryBookFilter.set('this')"
+					>
+						This Book
+					</button>
+					<button
+						type="button"
+						class="gallery-sidebar__scope-btn"
+						[class.gallery-sidebar__scope-btn--active]="galleryBookFilter() === 'all'"
+						(click)="galleryBookFilter.set('all')"
+					>
+						All Books
+					</button>
+				</div>
+			</div>
+
+			<!-- Folder navigation bar -->
+			<div class="gallery-folder-nav">
+				@if (currentFolderId() !== null) {
+					<button
+						type="button"
+						class="gallery-folder-nav__back"
+						(click)="exitFolder()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="15 18 9 12 15 6" />
+						</svg>
+					</button>
+					<span class="gallery-folder-nav__name">{{ currentFolderName() }}</span>
+				} @else {
+					<span class="gallery-folder-nav__name gallery-folder-nav__name--root"
+						>All Images</span
+					>
+				}
+				<span style="flex: 1"></span>
+				@if (currentFolderId() === null) {
+					<button
+						type="button"
+						class="btn"
+						style="font-size: 0.72rem; padding: 3px 8px"
+						(click)="createFolder()"
+					>
+						+ Folder
+					</button>
+				}
+			</div>
+
+
+			@if (galleryTab() === "output" && outputTotalPages() > 1) {
+				<div class="gallery-pagination">
+					<button
+						type="button"
+						class="gallery-pagination__btn"
+						[disabled]="outputPage() === 0"
+						(click)="outputPage.set(outputPage() - 1)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+							stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+							width="14" height="14"><polyline points="15 18 9 12 15 6" /></svg>
+					</button>
+					@if (pageEditActive()) {
+						<input
+							class="gallery-pagination__input"
+							type="number"
+							[value]="outputPage() + 1"
+							[attr.min]="1"
+							[attr.max]="outputTotalPages()"
+							(keydown.enter)="submitPageEdit($any($event.target).value)"
+							(keydown.escape)="pageEditActive.set(false)"
+							(blur)="pageEditActive.set(false)"
+						/>
+					} @else {
+						<span
+							class="gallery-pagination__label"
+							title="Double-click to jump to page"
+							(dblclick)="activatePageEdit()"
+						>{{ outputPage() + 1 }} / {{ outputTotalPages() }}</span>
+					}
+					<button
+						type="button"
+						class="gallery-pagination__btn"
+						[disabled]="outputPage() === outputTotalPages() - 1"
+						(click)="outputPage.set(outputPage() + 1)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+							stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+							width="14" height="14"><polyline points="9 18 15 12 9 6" /></svg>
+					</button>
+				</div>
+			}
+			<div class="gallery-sidebar__body">
+				@if (galleryMode() === "compare" && !beforePhotoURL()) {
+					<div class="compare-hint">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="3" y="3" width="18" height="18" rx="2" />
+							<line x1="12" y1="3" x2="12" y2="21" />
+						</svg>
+						Pick an image to compare
+					</div>
+				}
+
+				<!-- INPUT IMAGES TAB -->
+				@if (galleryTab() === "input") {
+					@let currentConfigId = currentInputImageConfigId();
+					@let meta = currentImageMetaData();
+					@let filename = meta?.filename ?? "";
+
+					@if (galleryMode() !== "compare") {
+						@if (currentInputImageConfigName()) {
+							<div class="drawer__section-head">
+								<span class="drawer__section-label"
+									>Selecting for:
+									<strong>{{ currentInputImageConfigName() }}</strong></span
+								>
+								@if (filename) {
+									<button
+										class="btn btn--primary"
+										type="button"
+										[disabled]="!filename"
+										(click)="closeGallery()"
+									>
+										Use Selected
+									</button>
+								}
+							</div>
+						}
+					}
+
+					<div class="file" style="margin-bottom: 12px">
+						<input
+							type="file"
+							[id]="'drawer-upload-' + currentConfigId"
+							(change)="onFileSelected($event)"
+							class="file__input"
+						/>
+						<label [for]="'drawer-upload-' + currentConfigId" class="file__label">
+							<span class="file__button">Upload Image</span>
+							<span class="file__name">No file selected</span>
+						</label>
+					</div>
+
+					<!-- Folder grid (shown only at root) -->
+					@if (currentInputFolderId() === null && inputFolders().length > 0) {
+						<div class="gallery-grid" style="margin-bottom: 10px">
+							@for (folder of inputFolders(); track folder.id) {
+								<div
+									class="gallery-folder-wrap"
+									(dragover)="onFolderDragOver($event)"
+									(dragenter)="onFolderDragEnter($event, folder)"
+									(dragleave)="onFolderDragLeave($event, folder)"
+									(drop)="onFolderDrop($event, folder)"
+								>
+									<button
+										type="button"
+										class="gallery-folder-item"
+										[class.drag-over]="dragOverFolderId() === folder.id"
+										(click)="enterFolder(folder.id)"
+										(contextmenu)="
+											openFolderContextMenu($event, folder); $event.preventDefault()
+										"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											class="gallery-folder-item__icon"
+										>
+											<path
+												d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"
+											/>
+										</svg>
+										<span class="gallery-folder-item__name">{{ folder.name }}</span>
+									</button>
+									<button
+										type="button"
+										class="gallery-folder-item__delete"
+										title="Delete folder"
+										(click)="deleteFolder(folder, $event)"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="3 6 5 6 21 6" />
+											<path d="M19 6l-1 14H6L5 6" />
+											<path d="M10 11v6M14 11v6" />
+											<path d="M9 6V4h6v2" />
+										</svg>
+									</button>
+								</div>
+							}
+						</div>
+					}
+
+					@if (visibleInputAssets().length === 0) {
+						<div class="gallery-empty">
+							{{
+								currentInputFolderId() !== null
+									? "No images in this folder."
+									: "No uploads yet."
+							}}
+						</div>
+					} @else {
+						<div class="gallery-grid">
+							@for (asset of visibleInputAssets(); track asset.id) {
+								@let currentlySelected = inputImagesMap()[currentConfigId];
+								@if (galleryMode() === "compare") {
+									<div
+										class="gallery-compare-item"
+										[class.gallery-compare-item--active]="beforePhotoURL() === asset.url"
+										(mouseenter)="showImagePreview($event, asset)"
+										(mousemove)="updateImagePreviewPosition($event)"
+										(mouseleave)="hideImagePreview()"
+									>
+										<button
+											class="gallery-item"
+											type="button"
+											[class.selected]="beforePhotoURL() === asset.url"
+											(click)="setBeforePhoto(asset.url); compareMode.set(true)"
+											(contextmenu)="openInputImageMenu($event, asset)"
+										>
+											<img [src]="asset.url" [alt]="asset.filename" loading="lazy" />
+										</button>
+										@if (beforePhotoURL() === asset.url) {
+											<div class="gallery-compare-item__badge">Before</div>
+										}
+										<button
+											class="gallery-compare-item__remove btn"
+											type="button"
+											(click)="removeAsset(asset.id)"
+										>
+											✕
+										</button>
+									</div>
+								} @else {
+									<div
+										style="position: relative"
+										draggable="true"
+										(dragstart)="onAssetDragStart($event, asset)"
+										(mouseenter)="showImagePreview($event, asset)"
+										(mousemove)="updateImagePreviewPosition($event)"
+										(mouseleave)="hideImagePreview()"
+									>
+										<button
+											class="gallery-item"
+											type="button"
+											[class.selected]="
+												!gallerySelectMode() && currentlySelected === asset.id
+											"
+											[class.gallery-item--bulk-selected]="
+												gallerySelectMode() && isAssetSelected(asset.id)
+											"
+											(click)="
+												gallerySelectMode()
+													? toggleAssetSelection(asset.id, $event, visibleInputAssets())
+													: selectAssetAndPreview(asset)
+											"
+											(contextmenu)="openInputImageMenu($event, asset)"
+										>
+											<img [src]="asset.url" [alt]="asset.filename" loading="lazy" />
+											@if (gallerySelectMode()) {
+												<div
+													class="gallery-item__checkbox"
+													[class.gallery-item__checkbox--checked]="isAssetSelected(asset.id)"
+												>
+													@if (isAssetSelected(asset.id)) {
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="3"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+														>
+															<polyline points="20 6 9 17 4 12" />
+														</svg>
+													}
+												</div>
+											}
+										</button>
+										@if (!gallerySelectMode()) {
+											@if (asset.layerData) {
+												<div class="gallery-item__layer-badge" title="Has layer data">
+													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+												</div>
+											}
+											@if (asset.folderId != null) {
+												<button
+													class="gallery-item__folder-remove btn"
+													type="button"
+													title="Remove from folder"
+													(click)="removeFromFolder(asset.id)"
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<path
+															d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+														/>
+														<line x1="12" y1="17" x2="12" y2="11" />
+														<polyline points="9 14 12 11 15 14" />
+													</svg>
+												</button>
+											}
+											<button
+												style="
+													position: absolute;
+													top: 3px;
+													right: 3px;
+													padding: 0px 4px;
+													border-radius: 100%;
+												"
+												class="btn"
+												type="button"
+												(click)="confirmRemoveInputAsset(asset.id)"
+											>
+												✕
+											</button>
+										}
+									</div>
+								}
+							}
+						</div>
+					}
+				}
+
+				<!-- HISTORY TAB -->
+				@if (galleryTab() === "output") {
+					<!-- Folder grid (shown only at root) -->
+					@if (currentOutputFolderId() === null && outputFolders().length > 0) {
+						<div class="gallery-grid" style="margin-bottom: 10px">
+							@for (folder of outputFolders(); track folder.id) {
+								<div
+									class="gallery-folder-wrap"
+									(dragover)="onFolderDragOver($event)"
+									(dragenter)="onFolderDragEnter($event, folder)"
+									(dragleave)="onFolderDragLeave($event, folder)"
+									(drop)="onFolderDrop($event, folder)"
+								>
+									<button
+										type="button"
+										class="gallery-folder-item"
+										[class.drag-over]="dragOverFolderId() === folder.id"
+										(click)="enterFolder(folder.id)"
+										(contextmenu)="
+											openFolderContextMenu($event, folder); $event.preventDefault()
+										"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											class="gallery-folder-item__icon"
+										>
+											<path
+												d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"
+											/>
+										</svg>
+										<span class="gallery-folder-item__name">{{ folder.name }}</span>
+									</button>
+									<button
+										type="button"
+										class="gallery-folder-item__delete"
+										title="Delete folder"
+										(click)="deleteFolder(folder, $event)"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="3 6 5 6 21 6" />
+											<path d="M19 6l-1 14H6L5 6" />
+											<path d="M10 11v6M14 11v6" />
+											<path d="M9 6V4h6v2" />
+										</svg>
+									</button>
+								</div>
+							}
+						</div>
+					}
+
+					@if (visibleOutputAssets().length === 0) {
+						<div class="gallery-empty">
+							{{
+								currentOutputFolderId() !== null
+									? "No images in this folder."
+									: "No history yet."
+							}}
+						</div>
+					} @else {
+						<div class="gallery-grid">
+							@for (asset of paginatedOutputAssets(); track asset.id) {
+								<div
+									class="gallery-compare-item"
+									[class.gallery-compare-item--active]="
+										!gallerySelectMode() && beforePhotoURL() === asset.url
+									"
+									[class.gallery-item--bulk-selected]="
+										gallerySelectMode() && isAssetSelected(asset.id)
+									"
+									draggable="true"
+									(dragstart)="onAssetDragStart($event, asset)"
+									(mouseenter)="showImagePreview($event, asset)"
+									(mousemove)="updateImagePreviewPosition($event)"
+									(mouseleave)="hideImagePreview()"
+								>
+									<button
+										class="gallery-item"
+										type="button"
+										[class.selected]="
+											!gallerySelectMode() && beforePhotoURL() === asset.url
+										"
+										(click)="onHistoryItemClick(asset, $event)"
+										(contextmenu)="openOutputImageMenu($event, asset)"
+									>
+										<img [src]="asset.url" [alt]="asset.filename" loading="lazy" />
+										@if (gallerySelectMode()) {
+											<div
+												class="gallery-item__checkbox"
+												[class.gallery-item__checkbox--checked]="isAssetSelected(asset.id)"
+											>
+												@if (isAssetSelected(asset.id)) {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="3"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<polyline points="20 6 9 17 4 12" />
+													</svg>
+												}
+											</div>
+										}
+									</button>
+									@if (!gallerySelectMode()) {
+										@if (asset.folderId != null) {
+											<button
+												class="gallery-item__folder-remove btn"
+												type="button"
+												title="Remove from folder"
+												(click)="removeFromFolder(asset.id)"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<path
+														d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+													/>
+													<line x1="12" y1="17" x2="12" y2="11" />
+													<polyline points="9 14 12 11 15 14" />
+												</svg>
+											</button>
+										}
+										@if (beforePhotoURL() === asset.url) {
+											<div class="gallery-compare-item__badge">Before</div>
+										}
+										<button
+											class="gallery-compare-item__remove btn"
+											type="button"
+											(click)="removeAsset(asset.id)"
+										>
+											✕
+										</button>
+									}
+								</div>
+							}
+						</div>
+					}
+				}
+			</div>
+		</aside>
+
+		<!-- CENTER: Image Viewer -->
+		<main class="viewer">
+			<!-- Viewer toolbar -->
+			<div class="viewer__bar">
+				<!-- LOGO -->
+				<div class="viewer__logo">
+					<span class="viewer__logo-text">ComfyUIX</span>
+					<span class="viewer__nav-label">Workflow frontend made easy.</span>
+				</div>
+
+				<span class="viewer__nav-sep"></span>
+
+				<!-- LEFT: app nav buttons -->
+				<div class="viewer__nav">
+					<button
+						class="viewer__nav-btn"
+						type="button"
+						(click)="flowsOverlayVisible.set(!flowsOverlayVisible())"
+						[class.viewer__nav-btn--active]="flowsOverlayVisible()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="3" y="3" width="7" height="7" />
+							<rect x="14" y="3" width="7" height="7" />
+							<rect x="3" y="14" width="7" height="7" />
+							<rect x="14" y="14" width="7" height="7" />
+						</svg>
+						<span class="viewer__nav-label">Flows &amp; Templates</span>
+					</button>
+
+					<button
+						class="viewer__nav-btn"
+						type="button"
+						(click)="showGallery()"
+						[class.viewer__nav-btn--active]="galleryVisible()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="3" y="3" width="18" height="18" rx="2" />
+							<circle cx="8.5" cy="8.5" r="1.5" />
+							<polyline points="21 15 16 10 5 21" />
+						</svg>
+						<span class="viewer__nav-label">Gallery</span>
+					</button>
+
+					<span class="viewer__nav-sep"></span>
+
+					<button
+						class="viewer__nav-btn"
+						type="button"
+						title="Quick Flows"
+						[disabled]="isLoading()"
+						(click)="openQuickFlowMenu($event)"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+						</svg>
+						<span class="viewer__nav-label">Quick Flows</span>
+					</button>
+
+					<span class="viewer__nav-sep"></span>
+
+					<button
+						class="viewer__nav-btn"
+						type="button"
+						[class.viewer__nav-btn--active]="galleryModeActive()"
+						[disabled]="!visibleOutputAssets().length"
+						title="Gallery Mode"
+						(click)="openGalleryModeFromNav()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="2" y="7" width="5" height="10" rx="1" />
+							<rect x="9.5" y="4" width="5" height="16" rx="1" />
+							<rect x="17" y="7" width="5" height="10" rx="1" />
+						</svg>
+						<span class="viewer__nav-label">Gallery Mode</span>
+					</button>
+
+					<button
+						class="viewer__nav-btn viewer__nav-btn--compare"
+						type="button"
+						(click)="openCompareGallery()"
+						[class.viewer__nav-btn--active]="compareMode()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="3" y="3" width="18" height="18" rx="2" />
+							<line x1="12" y1="3" x2="12" y2="21" />
+						</svg>
+						<span class="viewer__nav-label">Compare</span>
+					</button>
+
+					<span class="viewer__nav-sep"></span>
+
+					<button
+						class="viewer__nav-btn"
+						type="button"
+						[disabled]="isLoading()"
+						(click)="multirunOpen.set(!multirunOpen())"
+						[class.viewer__nav-btn--active]="multirunOpen()"
+						title="Multirun"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polygon points="5 3 19 12 5 21 5 3" />
+							<line x1="19" y1="3" x2="19" y2="21" />
+						</svg>
+						<span class="viewer__nav-label">Multirun</span>
+					</button>
+
+				</div>
+
+				<!-- CENTER: spacer (room to grow) -->
+				<div class="viewer__bar-spacer"></div>
+
+				<!-- RIGHT: zoom + compare controls -->
+				<div class="viewer__zoom">
+					<button
+						class="viewer__zoom-btn"
+						type="button"
+						(click)="zoomOut()"
+						title="Zoom out"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+						>
+							<line x1="5" y1="12" x2="19" y2="12" />
+						</svg>
+					</button>
+					<span class="viewer__zoom-level"
+						>{{ (imageZoom() * 100).toFixed(0) }}%</span
+					>
+					<button
+						class="viewer__zoom-btn"
+						type="button"
+						(click)="zoomIn()"
+						title="Zoom in"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+						>
+							<line x1="12" y1="5" x2="12" y2="19" />
+							<line x1="5" y1="12" x2="19" y2="12" />
+						</svg>
+					</button>
+					@if (canSwapDimensions()) {
+						<button
+							class="viewer__zoom-btn"
+							type="button"
+							(click)="swapDimensions()"
+							title="Swap width / height"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4m0 0L3 8m4-4 4 4"/><path d="M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+						</button>
+					}
+					<button
+						class="viewer__zoom-btn"
+						type="button"
+						(click)="openDimCalc()"
+						title="Dimension Calculator"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="4" y="2" width="16" height="20" rx="2"/>
+							<line x1="8" y1="6" x2="16" y2="6"/>
+							<line x1="8" y1="10" x2="10" y2="10"/>
+							<line x1="14" y1="10" x2="16" y2="10"/>
+							<line x1="8" y1="14" x2="10" y2="14"/>
+							<line x1="14" y1="14" x2="16" y2="14"/>
+							<line x1="8" y1="18" x2="10" y2="18"/>
+							<line x1="14" y1="18" x2="16" y2="18"/>
+						</svg>
+					</button>
+					<button
+						class="viewer__zoom-btn viewer__zoom-btn--fit"
+						type="button"
+						(click)="resetImageView()"
+						title="Fit to screen"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path
+								d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+							/>
+						</svg>
+					</button>
+					<button
+						class="viewer__zoom-btn viewer__config-toggle"
+						type="button"
+						(click)="ctrlSidebarVisible.set(!ctrlSidebarVisible())"
+						[class.viewer__zoom-btn--active]="ctrlSidebarVisible()"
+						title="Toggle config panel"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="4" y1="6" x2="20" y2="6" />
+							<line x1="4" y1="12" x2="14" y2="12" />
+							<line x1="4" y1="18" x2="17" y2="18" />
+						</svg>
+					</button>
+				</div>
+
+				<!-- Account menu -->
+				<div class="viewer__account">
+					<button
+						type="button"
+						class="viewer__account-chip"
+						[class.viewer__account-chip--open]="accountMenuOpen()"
+						(click)="accountMenuOpen.set(!accountMenuOpen())"
+					>{{ (authService.user()?.username ?? "U")[0].toUpperCase() }}</button>
+					@if (accountMenuOpen()) {
+						<div class="viewer__account-backdrop" (click)="accountMenuOpen.set(false)"></div>
+						<div class="viewer__account-menu">
+							<div class="viewer__account-name">{{ authService.user()?.username }}</div>
+							<div class="viewer__account-divider"></div>
+							<button type="button" class="viewer__account-item"
+								(click)="goToBooks(); accountMenuOpen.set(false)">
+								&#8592; Books
+							</button>
+							<button type="button" class="viewer__account-item viewer__account-item--danger"
+								(click)="logOut()">
+								Logout
+							</button>
+						</div>
+					}
+				</div>
+
+				@if (beforePhotoURL()) {
+					<div class="viewer__compare-controls">
+						<button
+							class="viewer__compare-btn"
+							type="button"
+							[class.viewer__compare-btn--active]="compareMode()"
+							(click)="compareMode.set(!compareMode())"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="3" width="18" height="18" rx="2" />
+								<line x1="12" y1="3" x2="12" y2="21" />
+							</svg>
+							Before / After
+						</button>
+						<button
+							class="viewer__compare-btn"
+							type="button"
+							(click)="swapCompareImages()"
+							title="Swap before and after"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<polyline points="16 3 21 3 21 8" />
+								<line x1="4" y1="20" x2="21" y2="3" />
+								<polyline points="21 16 21 21 16 21" />
+								<line x1="15" y1="15" x2="21" y2="21" />
+							</svg>
+							Swap
+						</button>
+						<button
+							class="viewer__compare-btn viewer__compare-btn--danger"
+							type="button"
+							(click)="
+								setBeforePhoto(''); compareMode.set(false); galleryMode.set('select')
+							"
+						>
+							Stop Comparing
+						</button>
+					</div>
+				}
+			</div>
+
+			<!-- Generator / Editor tab bar -->
+			<div class="viewer__tab-bar">
+				@if (activePageTab() === 'editor') {
+					<div class="viewer__editor-actions viewer__editor-actions--left">
+						<button class="btn viewer__editor-layers-btn" type="button"
+							[class.btn--active]="layerPanel.layerPanelOpen()"
+							(click)="layerPanel.layerPanelOpen.set(!layerPanel.layerPanelOpen())">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+								<polygon points="12 2 2 7 12 12 22 7 12 2"/>
+								<polyline points="2 17 12 22 22 17"/>
+								<polyline points="2 12 12 17 22 12"/>
+							</svg>
+							Layers
+						</button>
+					</div>
+				}
+				<div class="page-tab-group">
+					<button class="page-tab" type="button"
+						[class.page-tab--active]="activePageTab() === 'generator'"
+						(click)="exitEditor()">Generator</button>
+					<button class="page-tab" type="button"
+						[class.page-tab--active]="activePageTab() === 'editor'"
+						(click)="activePageTab.set('editor')">Editor</button>
+				</div>
+				@if (activePageTab() === 'editor') {
+					<div class="viewer__editor-actions">
+						<button class="btn btn--primary viewer__editor-save-btn" type="button"
+							[disabled]="isExportingMask() || !layerPanel.maskLayer()"
+							(click)="exportEditorResult()">
+							{{ isExportingMask() ? 'Saving…' : 'Save' }}
+						</button>
+						<button class="btn viewer__editor-exit-btn" type="button"
+							(click)="exitEditor()">Exit Editor</button>
+					</div>
+				}
+			</div>
+
+			<!-- Stage -->
+			<div
+				class="viewer__stage"
+				#viewerStage
+				[class.viewer__stage--grab]="(imageZoom() > 1 || layerPanel.spacePanning()) && !imageIsPanning()"
+				[class.viewer__stage--grabbing]="imageIsPanning()"
+				(pointerdown)="startImagePan($event)"
+				(dblclick)="resetImageView()"
+				(contextmenu)="openCanvasImageMenu($event)"
+				(wheel)="onImageWheel($event)"
+				(pointermove)="layerPanel.updateBrushCursor($event)"
+				(pointerleave)="layerPanel.clearCursor()"
+			>
+				@if (activePageTab() === 'generator') {
+					@if (compareMode() && beforePhotoURL()) {
+						<!-- COMPARE MODE -->
+						<app-image-compare
+							[afterURL]="resultPhotoURL()"
+							[beforeURL]="beforePhotoURL()"
+							[altText]="resultPhotoAlt()"
+							[panX]="imagePanX()"
+							[panY]="imagePanY()"
+							[zoom]="imageZoom()"
+						/>
+					} @else {
+						<!-- NORMAL MODE -->
+						<div
+							class="viewer__canvas-wrap"
+							[style.transform]="imgTransform()"
+							[style.aspect-ratio]="canvasImageNaturalSize() ? canvasImageNaturalSize()!.w + ' / ' + canvasImageNaturalSize()!.h : null"
+						>
+							<img
+								class="viewer__img viewer__img--normal"
+								[src]="resultPhotoURL()"
+								[alt]="resultPhotoAlt()"
+								(load)="onCanvasImageLoad($event)"
+							/>
+							@if (layerPanel.maskLayer()) {
+								<canvas
+									class="viewer__mask-canvas"
+									#maskCanvas
+									[style.opacity]="layerPanel.maskLayer()!.visible ? '0.7' : '0'"
+									[style.pointer-events]="(layerPanel.activeTool() === 'brush' || layerPanel.activeTool() === 'eraser') && !layerPanel.spacePanning() ? 'auto' : 'none'"
+									[style.cursor]="(layerPanel.activeTool() === 'brush' || layerPanel.activeTool() === 'eraser') && !layerPanel.spacePanning() ? 'none' : 'default'"
+									(pointerdown)="layerPanel.startBrushStroke($event)"
+									(contextmenu)="layerPanel.openMaskLayerMenu($event)"
+								></canvas>
+							}
+							@if (quickFlowRunningName() || (isLoading() && isInputImageFlow())) {
+								<div class="viewer__scan-overlay">
+									<span class="viewer__scan-label">
+										{{ quickFlowRunningName() ? ('Applying: ' + quickFlowRunningName()) : 'Generating…' }}
+									</span>
+								</div>
+							}
+						</div>
+					}
+				} @else {
+					<!-- EDITOR TAB -->
+					@if (editorSourceAsset(); as src) {
+						<div
+							class="viewer__canvas-wrap editor__canvas-wrap"
+							[style.transform]="imgTransform()"
+							[style.aspect-ratio]="canvasImageNaturalSize() ? canvasImageNaturalSize()!.w + ' / ' + canvasImageNaturalSize()!.h : null"
+						>
+							<img
+								class="viewer__img viewer__img--normal"
+								[src]="src.url"
+								(load)="onCanvasImageLoad($event)"
+								alt="Editor source image"
+							/>
+							@if (layerPanel.maskLayer()) {
+								<canvas
+									class="viewer__mask-canvas"
+									#editorMaskCanvas
+									[style.opacity]="layerPanel.maskLayer()!.visible ? '0.7' : '0'"
+									[style.pointer-events]="(layerPanel.activeTool() === 'brush' || layerPanel.activeTool() === 'eraser') && !layerPanel.spacePanning() ? 'auto' : 'none'"
+									[style.cursor]="(layerPanel.activeTool() === 'brush' || layerPanel.activeTool() === 'eraser') && !layerPanel.spacePanning() ? 'none' : 'default'"
+									(pointerdown)="layerPanel.startBrushStroke($event)"
+									(contextmenu)="layerPanel.openMaskLayerMenu($event)"
+								></canvas>
+							}
+							@if (isLoading() && isInputImageFlow()) {
+								<div class="viewer__scan-overlay">
+									<span class="viewer__scan-label">Generating…</span>
+								</div>
+							}
+						</div>
+					} @else {
+						<div class="editor__empty">
+							<p>Right-click an input image and choose "Load in Editor" to begin.</p>
+						</div>
+					}
+				}
+
+				<app-layer-panel />
+			</div>
+
+			<!-- System stats HUD -->
+			<app-sys-hud
+				[proxiedEndpoint]="httpProxiedEndpoint"
+				[tunnelVersion]="tunnelVersion()"
+				[tunnelVersionMismatch]="tunnelVersionMismatch()"
+				[jobRunning]="isLoading()"
+				[forceCollapse]="galleryVisible() || ctrlSidebarVisible() || consoleOverlayVisible() || flowsOverlayVisible()"
+			/>
+		</main>
+
+		<!-- RIGHT SIDEBAR: Controls -->
+		@if (ctrlSidebarVisible()) {
+			<div
+				class="ctrl-sidebar-backdrop"
+				(click)="ctrlSidebarVisible.set(false)"
+			></div>
+		}
+		<aside
+			class="ctrl-sidebar"
+			[class.ctrl-sidebar--hidden]="!ctrlSidebarVisible()"
+		>
+			<div class="ctrl-sidebar__mobile-header">
+				<button
+					class="ctrl-sidebar__mobile-close"
+					type="button"
+					(click)="ctrlSidebarVisible.set(false)"
+					title="Close"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
+					</svg>
+				</button>
+			</div>
+			<div class="ctrl-sidebar__body">
+				<!-- INPUT IMAGE THUMBNAILS (always visible, above prompts) -->
+				@for (config of activeFlow()?.configurables ?? []; track config.id) {
+					@if (config.type === "inputImage" && config.visible) {
+						@let meta = allImageMetadata()[config.id];
+						<div class="ctrl-field">
+							<span class="ctrl-label">{{ config.name }}</span>
+							@if (meta?.url) {
+								<div
+									class="ctrl-thumb"
+									(contextmenu)="openInputImageMenu($event, meta)"
+									(click)="showGallery(config.id)"
+								>
+									<div class="ctrl-thumb__img-wrap">
+										<img
+											class="ctrl-thumb__img"
+											[src]="meta.url"
+											(load)="updateImageDimensionInfo(config.id, $event)"
+										/>
+										<div class="ctrl-thumb__overlay">
+											<span class="ctrl-thumb__fname">{{ meta.filename }}</span>
+											@if (
+												imageDimensionMetaData()[config.id]?.naturalWidth &&
+												imageDimensionMetaData()[config.id]?.naturalHeight
+											) {
+												<span class="ctrl-thumb__dims"
+													>{{ imageDimensionMetaData()[config.id].naturalWidth }}×{{
+														imageDimensionMetaData()[config.id].naturalHeight
+													}}</span
+												>
+											}
+											<span class="ctrl-thumb__change">Click to change</span>
+										</div>
+									</div>
+								</div>
+							} @else {
+								<button
+									class="btn btn--primary"
+									type="button"
+									(click)="showGallery(config.id)"
+								>
+									Open Gallery
+								</button>
+							}
+						</div>
+					}
+				}
+
+				<!-- SEED -->
+				<div class="ctrl-field">
+					<div class="ctrl-field__head">
+						<span class="ctrl-label">Seed</span>
+						<label class="option" style="gap: 6px; font-size: 0.8rem">
+							<input
+								type="checkbox"
+								[checked]="randomizeSeed()"
+								(change)="randomizeSeed.set($any($event.target).checked)"
+							/>
+							<span style="font-weight: 400; opacity: 0.7">Randomize</span>
+						</label>
+					</div>
+					<input
+						class="control"
+						type="text"
+						data-config-id="seed"
+						[value]="getConfigValue('seed') ?? ''"
+						(input)="setConfigValue('seed', $any($event.target).value)"
+					/>
+					@if (randomizeSeed()) {
+						<p class="ctrl-hint">
+							A random seed will be used on every Generate, Re-run, and Quick Flow.
+						</p>
+					}
+				</div>
+
+				<!-- POSITIVE PROMPT -->
+				<div class="ctrl-field">
+					<div class="ctrl-field__head">
+						<span class="ctrl-label">Prompt</span>
+						@if (activeTemplate()) {
+							<button
+								class="btn"
+								type="button"
+								style="
+									font-size: 0.72rem;
+									padding: 4px 8px;
+									border-radius: 8px;
+									font-weight: 600;
+								"
+								(click)="addToPromptTemplate()"
+								[disabled]="!getConfigValue('positivePrompt')"
+							>
+								Save Prompts as Template
+							</button>
+						}
+					</div>
+					<textarea
+						class="control control--prompt-pos"
+						placeholder="Positive prompt"
+						[value]="getConfigValue('positivePrompt') ?? ''"
+						(input)="setConfigValue('positivePrompt', $any($event.target).value)"
+					></textarea>
+				</div>
+
+				<!-- NEGATIVE PROMPT -->
+				@if (hasNegativePrompt() && negativePromptVisible()) {
+					<div class="ctrl-field">
+						<span class="ctrl-label">Negative Prompt</span>
+						<textarea
+							class="control control--prompt-neg"
+							placeholder="Negative prompt"
+							[value]="getConfigValue('negativePrompt') ?? ''"
+							(input)="setConfigValue('negativePrompt', $any($event.target).value)"
+						></textarea>
+					</div>
+				}
+
+				<!-- ADVANCED SETTINGS (collapsible) -->
+				<div class="adv" [class.adv--open]="!advancedCollapsed()">
+					<button
+						class="adv__toggle"
+						type="button"
+						(click)="advancedCollapsed.set(!advancedCollapsed())"
+					>
+						<span class="adv__line"></span>
+						<span class="adv__label">Advanced Settings</span>
+						<svg
+							class="adv__chevron"
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="6 9 12 15 18 9" />
+						</svg>
+						<span class="adv__line"></span>
+					</button>
+
+					@if (!advancedCollapsed()) {
+						<div class="adv__body">
+							@for (config of activeFlow()?.configurables ?? []; track config.id) {
+								@if (
+									config.visible &&
+									config.type !== "core" &&
+									config.type !== "inputImage" &&
+									!["positivePrompt", "negativePrompt", "outputNode", "seed"].includes(
+										config.id
+									) &&
+									(!contentLocked() || !config.protected)
+								) {
+									<div class="ctrl-field">
+										<span class="ctrl-label">{{ config.name }}</span>
+										@switch (config.type) {
+											@case ("number") {
+												<div class="field bind-container">
+													<div class="bind-wrap">
+														@if (getBindingFor(config.id)) {
+															<div class="bind-display" [attr.data-config-id]="config.id">
+																{{ getConfigValue(config.id) ?? "—" }}
+															</div>
+														} @else {
+															<input
+																class="control"
+																type="number"
+																[attr.data-config-id]="config.id"
+																[value]="getConfigValue(config.id) ?? ''"
+																(input)="setConfigValue(config.id, $any($event.target).value)"
+															/>
+														}
+														<button
+															type="button"
+															class="bind-btn"
+															[class.bind-btn--active]="!!getBindingFor(config.id)"
+															(click)="toggleBindingPopover(config.id, $event)"
+															title="Bind: auto-sync this value from another input or image dimensions"
+														>
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																width="11"
+																height="11"
+																viewBox="0 0 24 24"
+																fill="none"
+																stroke="currentColor"
+																stroke-width="2.5"
+																stroke-linecap="round"
+																stroke-linejoin="round"
+															>
+																<path
+																	d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+																/>
+																<path
+																	d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+																/>
+															</svg>
+														</button>
+													</div>
+													@if (bindingPopoverFor() === config.id) {
+														<div class="bind-popover">
+															@let binding = getBindingFor(config.id);
+															@if (binding) {
+																<div class="bind-popover__bound-row">
+																	<span class="bind-popover__bound-label"
+																		>Synced from: {{ getBindingLabel(config.id) }}</span
+																	>
+																	<button
+																		type="button"
+																		class="bind-popover__unbind-btn"
+																		(click)="unbindConfig(config.id)"
+																	>
+																		Unbind
+																	</button>
+																</div>
+															} @else {
+																<div class="bind-popover__hint">
+																	Auto-sync this value from another input or an uploaded image's
+																	dimensions.
+																</div>
+																@let otherNums = getBindableConfigs(config.id);
+																@if (otherNums.length) {
+																	<div class="bind-popover__group-label">Other inputs</div>
+																	@for (other of otherNums; track other.id) {
+																		<button
+																			type="button"
+																			class="bind-popover__item"
+																			(click)="
+																				bindConfig(config.id, {
+																					type: 'configurable',
+																					configId: other.id,
+																				})
+																			"
+																		>
+																			{{ other.name }}
+																			<span class="bind-popover__item-val">{{
+																				getConfigValue(other.id)
+																			}}</span>
+																		</button>
+																	}
+																}
+																@let imgCfgs = inputImageConfigurables();
+																@if (imgCfgs.length) {
+																	<div class="bind-popover__group-label">Image dimensions</div>
+																	@for (img of imgCfgs; track img.id) {
+																		<button
+																			type="button"
+																			class="bind-popover__item"
+																			(click)="
+																				bindConfig(config.id, {
+																					type: 'imageWidth',
+																					imageConfigId: img.id,
+																				})
+																			"
+																		>
+																			{{ img.name }} <span class="bind-popover__dim-tag">W</span>
+																		</button>
+																		<button
+																			type="button"
+																			class="bind-popover__item"
+																			(click)="
+																				bindConfig(config.id, {
+																					type: 'imageHeight',
+																					imageConfigId: img.id,
+																				})
+																			"
+																		>
+																			{{ img.name }} <span class="bind-popover__dim-tag">H</span>
+																		</button>
+																	}
+																}
+																@if (!otherNums.length && !imgCfgs.length) {
+																	<div class="bind-popover__empty">
+																		No bindable sources in this flow.
+																	</div>
+																}
+															}
+														</div>
+													}
+												</div>
+											}
+											@case ("finalImageWidth") {
+											<div class="field bind-container">
+												<div class="bind-wrap">
+													@if (getBindingFor(config.id)) {
+														<div class="bind-display" [attr.data-config-id]="config.id">
+															{{ getConfigValue(config.id) ?? "—" }}
+														</div>
+													} @else {
+														<input
+															class="control"
+															type="number"
+															[attr.data-config-id]="config.id"
+															[value]="getConfigValue(config.id) ?? ''"
+															(input)="setConfigValue(config.id, $any($event.target).value)"
+														/>
+													}
+													<button
+														type="button"
+														class="bind-btn"
+														[class.bind-btn--active]="!!getBindingFor(config.id)"
+														(click)="toggleBindingPopover(config.id, $event)"
+														title="Bind: auto-sync this value from another input or image dimensions"
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+															<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+														</svg>
+													</button>
+												</div>
+												@if (bindingPopoverFor() === config.id) {
+													<div class="bind-popover">
+														@let binding = getBindingFor(config.id);
+														@if (binding) {
+															<div class="bind-popover__bound-row">
+																<span class="bind-popover__bound-label">Synced from: {{ getBindingLabel(config.id) }}</span>
+																<button type="button" class="bind-popover__unbind-btn" (click)="unbindConfig(config.id)">Unbind</button>
+															</div>
+														} @else {
+															<div class="bind-popover__hint">Auto-sync this value from another input or an uploaded image's dimensions.</div>
+															@let otherNums = getBindableConfigs(config.id);
+															@if (otherNums.length) {
+																<div class="bind-popover__group-label">Other inputs</div>
+																@for (other of otherNums; track other.id) {
+																	<button type="button" class="bind-popover__item" (click)="bindConfig(config.id, { type: 'configurable', configId: other.id })">
+																		{{ other.name }}<span class="bind-popover__item-val">{{ getConfigValue(other.id) }}</span>
+																	</button>
+																}
+															}
+															@let imgCfgs = inputImageConfigurables();
+															@if (imgCfgs.length) {
+																<div class="bind-popover__group-label">Image dimensions</div>
+																@for (img of imgCfgs; track img.id) {
+																	<button type="button" class="bind-popover__item" (click)="bindConfig(config.id, { type: 'imageWidth', imageConfigId: img.id })">{{ img.name }} <span class="bind-popover__dim-tag">W</span></button>
+																	<button type="button" class="bind-popover__item" (click)="bindConfig(config.id, { type: 'imageHeight', imageConfigId: img.id })">{{ img.name }} <span class="bind-popover__dim-tag">H</span></button>
+																}
+															}
+															@if (!otherNums.length && !imgCfgs.length) {
+																<div class="bind-popover__empty">No bindable sources in this flow.</div>
+															}
+														}
+													</div>
+												}
+											</div>
+										}
+										@case ("finalImageHeight") {
+											<div class="field bind-container">
+												<div class="bind-wrap">
+													@if (getBindingFor(config.id)) {
+														<div class="bind-display" [attr.data-config-id]="config.id">
+															{{ getConfigValue(config.id) ?? "—" }}
+														</div>
+													} @else {
+														<input
+															class="control"
+															type="number"
+															[attr.data-config-id]="config.id"
+															[value]="getConfigValue(config.id) ?? ''"
+															(input)="setConfigValue(config.id, $any($event.target).value)"
+														/>
+													}
+													<button
+														type="button"
+														class="bind-btn"
+														[class.bind-btn--active]="!!getBindingFor(config.id)"
+														(click)="toggleBindingPopover(config.id, $event)"
+														title="Bind: auto-sync this value from another input or image dimensions"
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+															<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+														</svg>
+													</button>
+												</div>
+												@if (bindingPopoverFor() === config.id) {
+													<div class="bind-popover">
+														@let binding = getBindingFor(config.id);
+														@if (binding) {
+															<div class="bind-popover__bound-row">
+																<span class="bind-popover__bound-label">Synced from: {{ getBindingLabel(config.id) }}</span>
+																<button type="button" class="bind-popover__unbind-btn" (click)="unbindConfig(config.id)">Unbind</button>
+															</div>
+														} @else {
+															<div class="bind-popover__hint">Auto-sync this value from another input or an uploaded image's dimensions.</div>
+															@let otherNums = getBindableConfigs(config.id);
+															@if (otherNums.length) {
+																<div class="bind-popover__group-label">Other inputs</div>
+																@for (other of otherNums; track other.id) {
+																	<button type="button" class="bind-popover__item" (click)="bindConfig(config.id, { type: 'configurable', configId: other.id })">
+																		{{ other.name }}<span class="bind-popover__item-val">{{ getConfigValue(other.id) }}</span>
+																	</button>
+																}
+															}
+															@let imgCfgs = inputImageConfigurables();
+															@if (imgCfgs.length) {
+																<div class="bind-popover__group-label">Image dimensions</div>
+																@for (img of imgCfgs; track img.id) {
+																	<button type="button" class="bind-popover__item" (click)="bindConfig(config.id, { type: 'imageWidth', imageConfigId: img.id })">{{ img.name }} <span class="bind-popover__dim-tag">W</span></button>
+																	<button type="button" class="bind-popover__item" (click)="bindConfig(config.id, { type: 'imageHeight', imageConfigId: img.id })">{{ img.name }} <span class="bind-popover__dim-tag">H</span></button>
+																}
+															}
+															@if (!otherNums.length && !imgCfgs.length) {
+																<div class="bind-popover__empty">No bindable sources in this flow.</div>
+															}
+														}
+													</div>
+												}
+											</div>
+										}
+										@case ("text") {
+												<div class="field">
+													<input
+														class="control"
+														type="text"
+														[attr.data-config-id]="config.id"
+														[value]="getConfigValue(config.id) ?? ''"
+														(input)="setConfigValue(config.id, $any($event.target).value)"
+													/>
+												</div>
+											}
+											@case ("multilineText") {
+												<textarea
+													class="control"
+													[attr.data-config-id]="config.id"
+													[value]="getConfigValue(config.id) ?? ''"
+													(input)="setConfigValue(config.id, $any($event.target).value)"
+												></textarea>
+											}
+											@case ("preset") {
+												<div
+													class="dropdown"
+													[class.dropdown--open]="openDropdownId() === config.id"
+												>
+													<button
+														type="button"
+														class="dropdown__trigger"
+														(click)="toggleDropdown(config.id)"
+													>
+														<span class="dropdown__value">{{
+															getConfigValue(config.id) ?? "Select…"
+														}}</span>
+														<svg
+															class="dropdown__chevron"
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2.5"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+														>
+															<polyline points="6 9 12 15 18 9" />
+														</svg>
+													</button>
+													@if (openDropdownId() === config.id) {
+														<div class="dropdown__list">
+															@for (option of config.presets; track option) {
+																<button
+																	type="button"
+																	class="dropdown__item"
+																	[class.dropdown__item--active]="
+																		getConfigValue(config.id) === option
+																	"
+																	(click)="setConfigValue(config.id, option); closeDropdown()"
+																	[title]="option"
+																>
+																	{{ option }}
+																</button>
+															}
+														</div>
+													}
+												</div>
+											}
+											@case ("lora") {
+												<div style="display:flex;align-items:center;gap:6px">
+													<div
+														class="dropdown"
+														[class.dropdown--open]="openDropdownId() === config.id"
+													>
+														<button
+															type="button"
+															class="dropdown__trigger"
+															(click)="toggleDropdown(config.id)"
+														>
+															@let loraVal = getConfigValue(config.id);
+															<span class="dropdown__value">{{
+																loraVal === '' ? 'None' : (loraVal ?? 'Select LoRA…')
+															}}</span>
+															<svg
+																class="dropdown__chevron"
+																xmlns="http://www.w3.org/2000/svg"
+																viewBox="0 0 24 24"
+																fill="none"
+																stroke="currentColor"
+																stroke-width="2.5"
+																stroke-linecap="round"
+																stroke-linejoin="round"
+															>
+																<polyline points="6 9 12 15 18 9" />
+															</svg>
+														</button>
+														@if (openDropdownId() === config.id) {
+															<div class="dropdown__list">
+																<button
+																	type="button"
+																	class="dropdown__item"
+																	[class.dropdown__item--active]="!getConfigValue(config.id)"
+																	(click)="setConfigValue(config.id, ''); closeDropdown()"
+																>
+																	None
+																</button>
+																@for (file of getLoraOptions(config.presets); track file.path) {
+																	<button
+																		type="button"
+																		class="dropdown__item"
+																		[class.dropdown__item--active]="getConfigValue(config.id) === file.path"
+																		(click)="setConfigValue(config.id, file.path); closeDropdown()"
+																		[title]="file.path"
+																	>
+																		{{ file.name }}
+																	</button>
+																}
+															</div>
+														}
+													</div>
+													<button
+														type="button"
+														class="btn-icon"
+														title="View LoRA info"
+														[disabled]="!getConfigValue(config.id)"
+														(click)="openLoraInfo(config.id)"
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+													</button>
+												</div>
+											}
+										}
+									</div>
+								}
+							}
+						</div>
+					}
+				</div>
+			</div>
+			<!-- /.ctrl-sidebar__body -->
+
+			<!-- PINNED FOOTER -->
+			<div class="ctrl-sidebar__footer">
+				<button
+					class="btn"
+					type="button"
+					(click)="
+						setConfigValue('positivePrompt', ''); setConfigValue('negativePrompt', '')
+					"
+				>
+					Clear
+				</button>
+				<button class="btn" type="button" (click)="showPromptTemplates()">
+					Templates
+				</button>
+				<div class="queue-group">
+					<input
+						class="queue-group__count"
+						type="number"
+						[value]="repeatCount()"
+						min="1"
+						max="99"
+						title="Number of times to queue"
+						(input)="setRepeatCount($any($event.target).value)"
+					/>
+					<button
+						class="btn btn--primary btn--queue"
+						type="button"
+						(click)="queueFlow()"
+						[disabled]="isLoading() && !isQueueRunning()"
+					>
+						@if (isLoading()) {
+							<span class="btn__pulse"></span>
+						}
+						{{ isQueueRunning() ? 'Add to Queue' : 'Queue' }}
+					</button>
+				</div>
+			</div>
+		</aside>
+	</div>
+	<!-- /.layout -->
+
+	<!-- STATUS BAR -->
+	<div class="statusbar">
+		<!-- SYS toggle — always visible in statusbar -->
+		<button
+			type="button"
+			class="statusbar__segment statusbar__segment--on"
+			style="flex-shrink: 0; cursor: pointer; background: none; border: none; font: inherit"
+			(click)="sysHudRef && sysHudRef.open.set(!sysHudRef.open())"
+			title="System stats"
+		>
+			<span class="statusbar__dot" style="margin-bottom: 3px"></span>
+			<span class="statusbar__sys-label" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px">SYS</span>
+		</button>
+		<span class="statusbar__divider statusbar__sys-sep" style="flex-shrink: 0"></span>
+
+		<div class="statusbar__left-group">
+			<!-- LEFT FIXED: flow & template -->
+			@if (activeFlow()) {
+				<div
+					class="statusbar__segment statusbar__segment--hi"
+					style="flex-shrink: 0"
+					(click)="flowsOverlayVisible.set(true)"
+				>
+					<svg
+						class="statusbar__icon"
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<rect x="3" y="3" width="7" height="7" />
+						<rect x="14" y="3" width="7" height="7" />
+						<rect x="3" y="14" width="7" height="7" />
+						<rect x="14" y="14" width="7" height="7" />
+					</svg>
+					{{ activeFlow()?.name }}
+				</div>
+				<span class="statusbar__sep" style="flex-shrink: 0">›</span>
+				<div
+					class="statusbar__segment"
+					style="flex-shrink: 0"
+					(click)="flowsOverlayVisible.set(true)"
+				>
+					{{ activeTemplate()?.name ?? "No template" }}
+				</div>
+			} @else {
+				<div
+					class="statusbar__segment statusbar__segment--muted"
+					style="flex-shrink: 0"
+				>
+					No flow selected
+				</div>
+			}
+
+			<span class="statusbar__divider" style="flex-shrink: 0"></span>
+
+			<!-- SCROLLABLE MIDDLE: seed, configs, loading -->
+			<div class="statusbar__scroll" #statusScroll>
+				<div
+					class="statusbar__segment"
+					style="cursor: pointer"
+					(click)="focusConfig('seed')"
+				>
+					<span class="statusbar__label">seed</span>
+					{{ getConfigValue("seed") ?? "—" }}
+				</div>
+
+				@for (cfg of statusBarConfigs(); track cfg.id) {
+					<span class="statusbar__sep">·</span>
+					<div
+						class="statusbar__segment"
+						style="cursor: pointer"
+						(click)="focusConfig(cfg.id)"
+					>
+						<span class="statusbar__label">{{ cfg.name }}</span>
+						{{ getConfigValue(cfg.id) ?? "—" }}
+					</div>
+				}
+			</div>
+		</div>
+		<!-- /.statusbar__left-group -->
+
+		<!-- FIXED STATUS/PROGRESS -->
+		@let displayText = lastLogText();
+		<span class="statusbar__divider" style="flex-shrink: 0"></span>
+		<div
+			class="statusbar__status"
+			style="cursor: pointer"
+			title="Toggle Console"
+			[class.statusbar__segment--on]="consoleOverlayVisible()"
+			(click)="consoleOverlayVisible.set(!consoleOverlayVisible())"
+			[style.background]="
+				isLoading() && progressBarProgress() > 0
+					? 'linear-gradient(to right, rgba(147,250,165,0.12) ' +
+						progressBarProgress() +
+						'%, transparent ' +
+						progressBarProgress() +
+						'%)'
+					: 'transparent'
+			"
+		>
+			@if (isLoading()) {
+				<span class="statusbar__pulse"></span>
+			}
+			<div class="statusbar__status-track">
+				<span
+					class="statusbar__status-text"
+					#statusText
+					[class.statusbar__status-text--scroll]="
+						statusScrollActive() && statusTextOverflows()
+					"
+					>{{ displayText }}</span
+				>
+			</div>
+		</div>
+
+		<!-- QUEUE DEPTH -->
+		@if (queueDepth(); as depth) {
+			<span class="statusbar__divider" style="flex-shrink: 0"></span>
+			<div class="statusbar__segment statusbar__segment--warn" style="flex-shrink: 0; cursor: default; gap: 4px" title="ComfyUI queue status">
+				<svg class="statusbar__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+				{{ queueLabel(depth) }}
+			</div>
+		}
+
+		<!-- RIGHT FIXED: Panic, Lock, Connected -->
+		@if (sysHudRef?.systemStats(); as stats) {
+			@if (stats.devices.length > 0) {
+				<span class="statusbar__divider statusbar__sys-mobile" style="flex-shrink: 0"></span>
+				<div class="statusbar__segment statusbar__sys-mobile" style="flex-shrink: 0; cursor: default; gap: 4px">
+					<span class="statusbar__dot" [style.color]="sysHudRef!.sysBarColor(sysHudRef!.sysPctUsed(stats.devices[0].vram_total, stats.devices[0].vram_free))"></span>
+					<span>VRAM&nbsp;{{ sysHudRef!.sysPctUsed(stats.devices[0].vram_total, stats.devices[0].vram_free) }}%</span>
+				</div>
+			}
+		}
+		<span class="statusbar__divider" style="flex-shrink: 0"></span>
+
+		<!-- Panic -->
+		<div
+			class="statusbar__segment statusbar__segment--clickable"
+			style="flex-shrink: 0; cursor: pointer"
+			(click)="panic.toggle()"
+			title="Panic Mode (Alt + H) — interrupt the current generation"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				style="width: 13px; height: 13px"
+			>
+				<path
+					d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+				/>
+				<line x1="12" y1="9" x2="12" y2="13" />
+				<line x1="12" y1="17" x2="12.01" y2="17" />
+			</svg>
+		</div>
+
+		<span class="statusbar__divider" style="flex-shrink: 0"></span>
+
+		<!-- Lock -->
+		<div
+			class="statusbar__segment statusbar__segment--clickable"
+			style="flex-shrink: 0; cursor: pointer"
+			(click)="toggleContentLock()"
+			[style.color]="
+				contentLocked() ? 'rgba(242,38,19,0.9)' : 'rgba(147,250,165,1)'
+			"
+			[title]="
+				contentLocked()
+					? 'Protected content is locked — click or press Alt+L to reveal'
+					: 'Protected content is unlocked — click or press Alt+L to lock'
+			"
+		>
+			@if (contentLocked()) {
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					style="width: 13px; height: 13px"
+				>
+					<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+					<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+				</svg>
+			} @else {
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					style="width: 13px; height: 13px"
+				>
+					<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+					<path d="M7 11V7a5 5 0 0 1 9.9-1" />
+				</svg>
+			}
+		</div>
+
+		<span class="statusbar__divider" style="flex-shrink: 0"></span>
+
+		<div class="statusbar__popover-wrap" style="flex-shrink: 0">
+			<div
+				class="statusbar__segment statusbar__segment--clickable"
+				style="cursor: pointer"
+				(click)="showBookInfo()"
+				[class.statusbar__segment--on]="isConnectedToServer()"
+				[class.statusbar__segment--off]="!isConnectedToServer()"
+				title="Click to view book info"
+			>
+				<svg
+					class="statusbar__icon"
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					style="width: 13px; height: 13px"
+				>
+					<path d="M5 12.55a11 11 0 0 1 14.08 0" />
+					<path d="M1.42 9a16 16 0 0 1 21.16 0" />
+					<path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+					<circle cx="12" cy="20" r="1" fill="currentColor" />
+				</svg>
+				<span class="statusbar__connect-label">{{
+					isConnectedToServer() ? "Connected" : "Disconnected"
+				}}</span>
+			</div>
+			@if (bookInfoVisible()) {
+				<div
+					class="float-toolbar__popover-dismiss"
+					(click)="bookInfoVisible.set(false)"
+				></div>
+				<div
+					class="statusbar__popover"
+					(click)="$event.stopPropagation()"
+					[innerHTML]="getBookInfo()"
+				></div>
+			}
+		</div>
+	</div>
+</div>
+
+<!-- PROMPT TEMPLATES SIDEBAR -->
+<div
+	class="prompt-sidebar"
+	[class.prompt-sidebar--open]="promptTemplatesVisible()"
+>
+	<div class="prompt-sidebar__backdrop" (click)="closePromptTemplates()"></div>
+	<div class="prompt-sidebar__panel">
+		<!-- Header + search -->
+		<div class="prompt-sidebar__head">
+			<h3 class="prompt-sidebar__title">Prompt Templates</h3>
+			<input
+				class="control"
+				type="text"
+				placeholder="Search prompts…"
+				style="width: 100%; box-sizing: border-box; margin-top: 8px"
+				[value]="promptSearchQuery()"
+				(input)="promptSearchQuery.set($any($event.target).value)"
+			/>
+		</div>
+
+
+		<!-- Scrollable list -->
+		<div class="prompt-sidebar__body">
+			@if (filteredPromptTemplates().length === 0) {
+				<p style="opacity: 0.45; text-align: center; padding: 32px 0">
+					No prompts match your search.
+				</p>
+			} @else {
+				@for (item of filteredPromptTemplates(); track item.i; let idx = $index) {
+					<div
+						class="prompt-card"
+						[class.prompt-card--selected]="selectedTemplatePromptIndex() === item.i"
+						(click)="selectTemplatePrompt(item.i)"
+					>
+						<div class="prompt-card__num">PROMPT {{ idx + 1 }}</div>
+						<div class="prompt-card__pos">
+							<div class="prompt-card__label prompt-card__label--pos">Positive</div>
+							<div class="prompt-card__text">{{ item.pt.positive || "—" }}</div>
+						</div>
+						@if (item.pt.negative) {
+							<div class="prompt-card__neg">
+								<div class="prompt-card__label prompt-card__label--neg">Negative</div>
+								<div class="prompt-card__text">{{ item.pt.negative }}</div>
+							</div>
+						}
+					</div>
+				}
+			}
+		</div>
+
+		<!-- Footer -->
+		<div class="prompt-sidebar__footer">
+			<div class="prompt-sidebar__selection">
+				@if (selectedTemplatePromptIndex() !== null) {
+					<svg
+						class="flows-sidebar__sel-icon"
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<polyline points="20 6 9 17 4 12" />
+					</svg>
+					<span
+						style="
+							font-size: 0.78rem;
+							color: rgba(147, 250, 165, 1);
+							font-weight: 600;
+						"
+					>
+						Prompt {{ (selectedTemplateDisplayIndex() ?? 0) + 1 }} selected
+					</span>
+				} @else {
+					<span
+						style="
+							font-size: 0.78rem;
+							color: rgba(255, 255, 255, 0.25);
+							font-style: italic;
+						"
+					>
+						No prompt selected
+					</span>
+				}
+			</div>
+			<button
+				class="btn"
+				type="button"
+				(click)="deletePromptTemplate()"
+				[disabled]="selectedTemplatePromptIndex() === null"
+			>
+				Delete
+			</button>
+			<button
+				class="btn btn--primary"
+				type="button"
+				(click)="insertPrompt()"
+				[disabled]="selectedTemplatePromptIndex() === null"
+			>
+				Use Prompt
+			</button>
+		</div>
+	</div>
+</div>
+
+<!-- MULTIRUN PANEL OVERLAY -->
+<div class="multirun-overlay" [class.multirun-overlay--open]="multirunOpen()">
+	<div class="multirun-overlay__backdrop" (click)="multirunOpen.set(false)"></div>
+	<div class="multirun-overlay__panel">
+		<app-multirun-panel
+			[bookId]="bookId"
+			[flows]="flows()"
+			[loraFiles]="loraFiles()"
+			[statuses]="multirunStatuses()"
+			[running]="multirunRunning()"
+			(run)="runMultirun($event)"
+			(closed)="multirunOpen.set(false)"
+		/>
+	</div>
+</div>
+
+<!-- GALLERY MODE OVERLAY -->
+<app-gallery-mode
+	[active]="galleryModeActive()"
+	[assets]="galleryModeAssets()"
+	[activeIndex]="galleryModeIndex()"
+	(closed)="closeGalleryMode()"
+	(navigateTo)="galleryModeIndex.set($event)"
+/>
+
+<!-- GALLERY IMAGE PREVIEW TOOLTIP -->
+@if (imagePreview(); as p) {
+	<div class="gallery-preview" [style.left.px]="p.left" [style.top.px]="p.y">
+		<img
+			[src]="p.url"
+			[alt]="p.filename"
+			(load)="setImagePreviewSize($event)"
+			class="gallery-preview__img"
+		/>
+		<div
+			class="gallery-preview__caption"
+			style="
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 3px;
+				padding: 8px 10px;
+				border-top: 1px solid rgba(255, 255, 255, 0.07);
+				text-align: center;
+			"
+		>
+			<span
+				style="
+					font-size: 0.78rem;
+					color: rgba(255, 255, 255, 0.9);
+					word-break: break-all;
+					line-height: 1.4;
+				"
+				>{{ p.filename }}</span
+			>
+			@if (p.naturalWidth && p.naturalHeight) {
+				<span
+					style="
+						font-size: 0.7rem;
+						color: rgba(255, 255, 255, 0.4);
+						font-variant-numeric: tabular-nums;
+					"
+					>{{ p.naturalWidth }}×{{ p.naturalHeight }}</span
+				>
+			}
+		</div>
+	</div>
+}
+
+@if (isUploadingToInput()) {
+	<spinner
+		preset="bounce"
+		[speedMs]="80"
+		[overlay]="true"
+		label="Uploading image…"
+		[bottomOffset]="26"
+	></spinner>
+}
+
+
+@if (loraInfoEntry()) {
+	<app-model-info-modal
+		[serverId]="serverId()!"
+		[entry]="loraInfoEntry()!.entry"
+		[fullPath]="loraInfoEntry()!.fullPath"
+		(close)="loraInfoEntry.set(null)"
+	/>
+}

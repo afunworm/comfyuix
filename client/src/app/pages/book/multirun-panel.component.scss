@@ -1,0 +1,435 @@
+:host {
+  display: contents;
+}
+
+.multirun-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__footer {
+    padding: 10px 14px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__overall {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__overall-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  &__overall-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  &__overall-label {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.45);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  &__run-btn {
+    width: 100%;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  &__run-spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  &__presets {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__presets-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__presets-empty {
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.3);
+    flex: 1;
+  }
+
+  &__preset-sel {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.78rem;
+    padding: 4px 28px 4px 8px;
+  }
+
+  &__save-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  &__save-input {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8rem;
+  }
+
+  &__preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__preset-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  &__preset-name {
+    flex: 1;
+    font-size: 0.76rem;
+    color: rgba(255, 255, 255, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes entry-pulse {
+  0%, 100% { border-color: rgba(122, 162, 255, 0.4); box-shadow: 0 0 0 0 rgba(122, 162, 255, 0); }
+  50%       { border-color: rgba(122, 162, 255, 0.85); box-shadow: 0 0 8px 1px rgba(122, 162, 255, 0.18); }
+}
+
+// ── Shared hint text ──────────────────────────────────────────────────────────
+
+.multirun-hint {
+  margin: 0;
+  padding: 8px 2px;
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.5;
+
+  &--sm {
+    padding: 4px 2px;
+  }
+}
+
+// ── Sections ──────────────────────────────────────────────────────────────────
+
+.multirun-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &--queue {
+    flex: 1;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  &__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+// ── Shared field rows ─────────────────────────────────────────────────────────
+
+.multirun-shared-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+
+  &__label {
+    width: 120px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+  }
+
+  &__value {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8rem;
+  }
+}
+
+// ── Entry cards ───────────────────────────────────────────────────────────────
+
+.multirun-entry {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.15s;
+
+  &--running {
+    border-width: 2px;
+    border-color: rgba(122, 162, 255, 0.6);
+    animation: entry-pulse 1.6s ease-in-out infinite;
+  }
+
+  &--done {
+    border-color: rgba(80, 200, 120, 0.35);
+  }
+
+  &--error {
+    border-color: rgba(242, 80, 80, 0.4);
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  &__index {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.3);
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  &__sel {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.78rem;
+    padding: 4px 28px 4px 8px;
+
+    &--tmpl {
+      flex: 0 0 auto;
+      width: 110px;
+    }
+  }
+
+  &__expand-btn {
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.4);
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.8);
+    }
+  }
+
+  // Status strip
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.15);
+    min-height: 34px;
+  }
+
+  &__bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  &__pct {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+  }
+
+  &__badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+
+    &--pending {
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    &--done {
+      background: rgba(80, 200, 120, 0.15);
+      color: rgba(80, 200, 120, 0.9);
+    }
+
+    &--error {
+      background: rgba(242, 80, 80, 0.15);
+      color: rgba(242, 80, 80, 0.9);
+    }
+  }
+
+  &__thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+  }
+
+  &__err-msg {
+    font-size: 0.72rem;
+    color: rgba(242, 80, 80, 0.8);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  // Configurables list
+
+  &__cfgs {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+// ── Configurable rows ─────────────────────────────────────────────────────────
+
+.multirun-cfg {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+
+  &__label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    padding-top: 5px;
+    width: 100px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__value {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__input {
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 4px 7px;
+
+    &:is(select) {
+      padding-right: 28px;
+    }
+
+    &--multiline {
+      resize: vertical;
+      min-height: 48px;
+    }
+  }
+
+  &__linked-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: rgba(122, 162, 255, 0.15);
+    border: 1px solid rgba(122, 162, 255, 0.3);
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  &__link-sel {
+    flex-shrink: 0;
+    width: auto;
+    min-width: 60px;
+    max-width: 90px;
+    font-size: 0.75rem;
+    padding: 3px 24px 3px 8px;
+    height: 28px;
+
+    &--active {
+      border-color: rgba(122, 162, 255, 0.5);
+      color: var(--accent);
+    }
+  }
+}

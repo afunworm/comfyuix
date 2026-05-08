@@ -1,0 +1,242 @@
+<div class="app">
+	<app-header />
+
+	<!-- MAIN -->
+	<main class="page">
+		<section class="panel section">
+			<div class="section__head">
+				<h2 class="section__title">Your Books</h2>
+				<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end">
+					<button class="btn" type="button" [disabled]="importingBook()" (click)="triggerImportBook()">
+						@if (importingBook()) { Importing… } @else { Import Book }
+					</button>
+					<button class="btn" type="button" (click)="createBook()">+ New Book</button>
+				</div>
+			</div>
+
+			<p style="margin: 0 0 16px; padding: 8px 0 0 12px; font-size: 0.82rem; opacity: 0.5; line-height: 1.6">
+				A <strong>Book</strong> is a collection of workflows connected to a ComfyUI server.
+				Each <strong>Flow</strong> exposes a curated set of controls for a specific workflow.
+				Within a flow, <strong>Templates</strong> let users switch instantly between different configurations.
+			</p>
+
+			@if (loading()) {
+				<p style="padding: 12px; opacity: 0.5">Loading books…</p>
+			} @else if (books().length === 0) {
+				<p style="padding: 12px; opacity: 0.5">No books yet. Create your first book to get started.</p>
+			} @else {
+				<div style="display: grid; gap: 12px; margin-top: 16px">
+					@for (book of books(); track book.id) {
+						<div class="panel" style="padding: 16px">
+							<!-- ============================================================ -->
+							<!-- VIEW MODE                                                     -->
+							<!-- ============================================================ -->
+							@if (editingBookId() !== book.id) {
+								<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+									<!-- Name + description + meta -->
+									<div style="min-width: 0">
+										<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+											<h2 style="margin: 0; font-size: 1rem">{{ book.name }}</h2>
+											@if (book.bookPassword) {
+												<span class="badge" style="font-size: 0.72em">🔒 Password</span>
+											}
+											@if (book.isPublic) {
+												<span class="badge badge--accent" style="font-size: 0.72em">Public</span>
+											}
+										</div>
+
+										@if (book.description) {
+											<p style="margin: 6px 0 0; font-size: 0.88rem; opacity: 0.6; line-height: 1.4">{{ book.description }}</p>
+										}
+
+										<p style="margin: 6px 0 0; font-size: 0.82rem; opacity: 0.4">
+											{{ book.server_name ?? 'No server' }}
+											@if (book.flows?.length) {
+												· {{ book.flows!.length }} flow{{ book.flows!.length === 1 ? "" : "s" }}
+											}
+										</p>
+									</div>
+
+									<!-- Actions -->
+									<div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end">
+										<button type="button" class="btn" style="padding: 6px 10px; font-size: 0.85rem" (click)="openBook(book)">Open</button>
+										<button type="button" class="btn" style="padding: 6px 10px; font-size: 0.85rem" title="Create a new flow" (click)="newFlow(book)">Add Flow</button>
+
+										<!-- Edit -->
+										<button type="button" class="btn-icon" aria-label="Edit book" title="Edit book" (click)="startEdit(book)">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+											</svg>
+										</button>
+
+										<!-- Clone -->
+										<button type="button" class="btn-icon" aria-label="Clone book" title="Clone book" (click)="cloneBook(book)">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+												<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+											</svg>
+										</button>
+
+										<!-- Export -->
+										<button type="button" class="btn-icon" aria-label="Export book" title="Export book to JSON file" [disabled]="exportingBookId() === book.id" (click)="exportBook(book)">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="8 7 12 3 16 7" />
+												<line x1="12" y1="3" x2="12" y2="21" />
+												<path d="M5 21h14" />
+											</svg>
+										</button>
+
+										<!-- Import flows -->
+										<button type="button" class="btn-icon" aria-label="Import flows" title="Import flows from another book" [style.color]="importTargetBookId() === book.id ? 'var(--accent)' : ''" (click)="toggleImportPanel(book.id)">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="8 17 12 21 16 17" />
+												<line x1="12" y1="3" x2="12" y2="21" />
+											</svg>
+										</button>
+
+										<!-- Delete -->
+										<button type="button" class="btn-icon" aria-label="Delete book" title="Delete book" style="color: var(--danger)" (click)="deleteBook(book)">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6" />
+												<path d="M19 6l-1 14H6L5 6" />
+												<path d="M10 11v6M14 11v6" />
+												<path d="M9 6V4h6v2" />
+											</svg>
+										</button>
+									</div>
+								</div>
+
+								<!-- Flows toggle + list -->
+								@if (book.flows?.length) {
+									<div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px">
+										<button type="button" style="display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; color: var(--muted); font-size: 0.82rem" (click)="toggleFlowsExpanded(book.id)">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; transition: transform 0.2s; flex-shrink: 0" [style.transform]="isFlowsExpanded(book.id) ? 'rotate(0deg)' : 'rotate(-90deg)'">
+												<polyline points="6 9 12 15 18 9" />
+											</svg>
+											{{ book.flows!.length }} flow{{ book.flows!.length === 1 ? "" : "s" }}
+										</button>
+
+										@if (isFlowsExpanded(book.id)) {
+											<div style="margin-top: 8px; display: grid; gap: 6px">
+												@for (flow of book.flows!; track flow.id) {
+													<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgba(0,0,0,0.12)">
+														<span style="display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden">
+														<span style="font-size: 0.88rem; white-space: nowrap; flex-shrink: 0">{{ flow.name }}</span>
+														@if (flow.description) {
+															<span style="font-size: 0.8rem; opacity: 0.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1">{{ flow.description }}</span>
+														}
+													</span>
+														<div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0">
+															<button type="button" class="btn-icon" aria-label="Edit flow" title="Edit flow" (click)="editFlow(book, flow.id)">
+																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+															</button>
+															<button type="button" class="btn-icon" aria-label="Clone flow" title="Clone flow" (click)="cloneFlow(book, flow)">
+																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+															</button>
+															<button type="button" class="btn-icon" aria-label="Delete flow" title="Delete flow" style="color: var(--danger)" (click)="deleteFlow(book, flow)">
+																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>
+															</button>
+														</div>
+													</div>
+												}
+											</div>
+										}
+									</div>
+								}
+							}
+
+							<!-- ============================================================ -->
+							<!-- EDIT MODE                                                     -->
+							<!-- ============================================================ -->
+							@if (editingBookId() === book.id) {
+								<div style="display: grid; gap: 14px">
+									<div class="grid-2">
+										<div class="field">
+											<label class="label">Name *</label>
+											<input class="control" type="text" placeholder="Book name" [value]="editDraft().name ?? ''" (input)="patchDraft({ name: $any($event.target).value })" />
+										</div>
+										<div class="field">
+											<label class="label">Description</label>
+											<input class="control" type="text" placeholder="Optional description" [value]="editDraft().description ?? ''" (input)="patchDraft({ description: $any($event.target).value })" />
+										</div>
+									</div>
+
+									<div class="grid-2">
+										<div class="field">
+											<label class="label">Server</label>
+											<select class="select" (change)="patchDraft({ server_id: $any($event.target).value || null })">
+												<option value="" [selected]="!editDraft().server_id">No server</option>
+												@for (s of servers(); track s.id) {
+													<option [value]="s.id" [selected]="editDraft().server_id === s.id">{{ s.name }}</option>
+												}
+											</select>
+										</div>
+										<div class="field">
+											<label class="label">Password</label>
+											<input class="control" type="text" placeholder="Leave empty for no password" [value]="editDraft().bookPassword ?? ''" (input)="patchDraft({ bookPassword: $any($event.target).value })" />
+										</div>
+									</div>
+
+									<div style="display: flex; align-items: center; gap: 10px">
+										<input type="checkbox" [id]="'isPublic-' + book.id" [checked]="editDraft().isPublic ?? false" (change)="patchDraft({ isPublic: $any($event.target).checked })" />
+										<label [for]="'isPublic-' + book.id" style="font-size: 0.9rem; cursor: pointer">Make this book public</label>
+									</div>
+
+									<div class="btn-row btn-row--right">
+										<button class="btn" type="button" (click)="cancelEdit()">Cancel</button>
+										<button class="btn btn--primary" type="button" (click)="saveEdit(book)">Save Changes</button>
+									</div>
+								</div>
+							}
+
+							<!-- ============================================================ -->
+							<!-- IMPORT PANEL                                                  -->
+							<!-- ============================================================ -->
+							@if (importTargetBookId() === book.id && editingBookId() !== book.id) {
+								<div class="inset" style="margin-top: 14px; padding: 14px; display: grid; gap: 14px">
+									<p style="margin: 0; font-size: 0.9rem; opacity: 0.7">
+										Import a flow from another book into <strong>{{ book.name }}</strong>.
+									</p>
+
+									@if (importSourceBooks().length === 0) {
+										<p style="opacity: 0.45; font-size: 0.88rem">No other books available to import from.</p>
+									} @else {
+										<div class="field">
+											<label class="label">Source book</label>
+											<select class="select" (change)="selectSourceBook($any($event.target).value)">
+												<option value="" disabled [selected]="!importSourceBookId()">Select a book…</option>
+												@for (src of importSourceBooks(); track src.id) {
+													<option [value]="src.id" [selected]="importSourceBookId() === src.id">{{ src.name }}</option>
+												}
+											</select>
+										</div>
+
+										@if (importSourceBookId()) {
+											@if (importSourceFlows().length === 0) {
+												<p style="opacity: 0.45; font-size: 0.88rem">This book has no flows.</p>
+											} @else {
+												<div style="display: grid; gap: 8px">
+													@for (flow of importSourceFlows(); track flow.id) {
+														<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px">
+															<span style="font-size: 0.92rem">{{ flow.name }}</span>
+															<button type="button" class="btn" style="padding: 5px 10px; font-size: 0.82rem" [disabled]="importingFlowId() === flow.id" (click)="importFlow(flow)">
+																@if (importingFlowId() === flow.id) { Importing… } @else { Import }
+															</button>
+														</div>
+													}
+												</div>
+											}
+										}
+									}
+								</div>
+							}
+						</div>
+					}
+				</div>
+			}
+		</section>
+	</main>
+
+	<app-footer />
+</div>

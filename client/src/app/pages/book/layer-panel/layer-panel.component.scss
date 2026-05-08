@@ -1,0 +1,433 @@
+:host {
+  display: contents;
+}
+
+// ── Tool options bar ───────────────────────────────────────────────────────
+.tool-options-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 34px;
+  padding: 0 10px;
+  background: rgba(10, 14, 20, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  animation: tool-bar-in 0.15s ease;
+
+  &__group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__sep {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 10px;
+    flex-shrink: 0;
+  }
+
+  &__tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    &--active {
+      background: rgba(122, 162, 255, 0.1);
+      border-color: rgba(122, 162, 255, 0.3);
+      color: var(--accent);
+    }
+  }
+
+  &__shape-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+
+    svg { width: 12px; height: 12px; }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    &--active {
+      background: rgba(122, 162, 255, 0.1);
+      border-color: rgba(122, 162, 255, 0.3);
+      color: var(--accent);
+    }
+  }
+
+  &__hint {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  &__hint-count {
+    color: rgba(255, 255, 255, 0.55);
+    margin-left: 4px;
+  }
+
+  &__label {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  &__slider {
+    width: 90px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  &__val {
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 32px;
+  }
+
+  &__done-btn {
+    margin-left: auto;
+    padding: 3px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.9);
+    }
+  }
+}
+
+@keyframes tool-bar-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── Brush cursor ────────────────────────────────────────────────────────────
+.brush-cursor {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  mix-blend-mode: difference;
+
+  &--eraser {
+    border-style: dashed;
+  }
+
+  &--square {
+    border-radius: 0;
+  }
+}
+
+// ── Polygon overlay ──────────────────────────────────────────────────────────
+.polygon-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 12; // below toolbar (15) and layer panel (20) so those stay clickable
+  cursor: crosshair;
+  overflow: visible;
+
+  &__fill {
+    fill: rgba(255, 80, 80, 0.18);
+    stroke: none;
+  }
+
+  &__line {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.85);
+    stroke-width: 1.5px;
+  }
+
+  &__preview-line {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.45);
+    stroke-width: 1.5px;
+    stroke-dasharray: 5 3;
+  }
+
+  &__snap-zone {
+    fill: rgba(74, 222, 128, 0.1);
+    stroke: rgba(74, 222, 128, 0.7);
+    stroke-width: 1px;
+    stroke-dasharray: 3 2;
+    pointer-events: none;
+  }
+
+  &__dot {
+    fill: #ffffff;
+    stroke: rgba(0, 0, 0, 0.5);
+    stroke-width: 1px;
+    pointer-events: none;
+
+    &--first {
+      fill: #4ade80;
+    }
+  }
+}
+
+// ── Layer panel ────────────────────────────────────────────────────────────
+.layer-panel {
+  position: absolute;
+  z-index: 20;
+  width: 192px;
+  background: rgba(10, 14, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: layer-panel-in 0.15s ease;
+  overflow: hidden;
+
+  &--dragging {
+    user-select: none;
+
+    .layer-panel__header { cursor: grabbing; }
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.35);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    cursor: grab;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.8);
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    gap: 2px;
+  }
+
+  &__group {
+    display: flex;
+    flex-direction: column;
+
+    &--has-mask {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  &__mask-child {
+    display: flex;
+    align-items: stretch;
+    padding: 0 4px 4px 14px;
+    gap: 4px;
+  }
+
+  &__connector {
+    flex-shrink: 0;
+    width: 10px;
+    border-left: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-bottom-left-radius: 4px;
+    margin-bottom: 9px; // align with row center
+  }
+
+  &__type-icon--mask {
+    color: rgba(180, 130, 255, 0.8);
+    opacity: 1;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.7);
+    user-select: none;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    &--active {
+      background: rgba(122, 162, 255, 0.08);
+      color: var(--accent);
+    }
+
+    &--locked {
+      cursor: default;
+      color: rgba(255, 255, 255, 0.35);
+
+      &:hover {
+        background: transparent;
+      }
+    }
+  }
+
+  &__eye {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+    transition: color 0.12s;
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    &--hidden {
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    &--placeholder {
+      pointer-events: none;
+    }
+  }
+
+  &__type-icon {
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  &__name {
+    flex: 1;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+    transition: color 0.12s, background 0.12s;
+
+    &:hover {
+      background: rgba(242, 38, 19, 0.1);
+      color: var(--danger);
+    }
+  }
+
+  &__lock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    flex-shrink: 0;
+    opacity: 0.3;
+  }
+
+  &__add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.8);
+    }
+  }
+}
+
+@keyframes layer-panel-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

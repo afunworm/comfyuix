@@ -1,0 +1,517 @@
+<div class="app">
+	<app-header />
+
+	<main class="page">
+		<section class="panel gallery-panel">
+			<!-- Head -->
+			<div class="gallery__head">
+				<h2 class="gallery__title">Gallery</h2>
+				<button
+					type="button"
+					class="btn"
+					style="font-size: 0.72rem; padding: 4px 10px"
+					[class.btn--primary]="gallerySelectMode()"
+					(click)="toggleSelectMode()"
+				>
+					{{ gallerySelectMode() ? "Cancel" : "Select Mode" }}
+				</button>
+			</div>
+
+			<!-- Select bar -->
+			@if (gallerySelectMode()) {
+				<div class="gallery__select-bar">
+					<span class="gallery__select-count">
+						{{ selectedAssetIds().size }} selected
+					</span>
+					<button
+						type="button"
+						class="btn"
+						style="font-size: 0.72rem; padding: 4px 10px"
+						(click)="selectAll()"
+					>
+						Select All
+					</button>
+					@if (selectedAssetIds().size > 0) {
+						<button
+							type="button"
+							class="btn gallery__delete-btn"
+							(click)="bulkDeleteSelected()"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								style="width: 13px; height: 13px"
+							>
+								<polyline points="3 6 5 6 21 6" />
+								<path d="M19 6l-1 14H6L5 6" />
+								<path d="M10 11v6" />
+								<path d="M14 11v6" />
+								<path d="M9 6V4h6v2" />
+							</svg>
+							Delete {{ selectedAssetIds().size }}
+						</button>
+					}
+				</div>
+			}
+
+			<!-- Tabs -->
+			<div class="gallery__tabs">
+				<button
+					class="gallery__tab"
+					type="button"
+					[class.gallery__tab--active]="galleryTab() === 'input'"
+					(click)="galleryTab.set('input')"
+				>
+					Input Images
+				</button>
+				<button
+					class="gallery__tab"
+					type="button"
+					[class.gallery__tab--active]="galleryTab() === 'output'"
+					(click)="galleryTab.set('output')"
+				>
+					Generated
+				</button>
+			</div>
+
+			<!-- Book filter -->
+			@if (books().length > 0) {
+				<div class="gallery__book-filter">
+					<label class="gallery__book-filter-label">Book</label>
+					<select
+						class="select gallery__book-select"
+						(change)="onBookSelectChange($any($event.target).value)"
+					>
+						<option value="">All Books</option>
+						@for (book of books(); track book.id) {
+							<option [value]="book.id" [selected]="selectedBookId() === book.id">
+								{{ book.name }}
+							</option>
+						}
+					</select>
+				</div>
+			}
+
+			<!-- Folder nav -->
+			<div class="gallery__folder-nav">
+				@if (currentFolderId() !== null) {
+					<button
+						type="button"
+						class="gallery__folder-nav-back"
+						(click)="exitFolder()"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="15 18 9 12 15 6" />
+						</svg>
+					</button>
+					<span class="gallery__folder-nav-name">{{ currentFolderName() }}</span>
+				} @else {
+					<span class="gallery__folder-nav-name gallery__folder-nav-name--root"
+						>All Images</span
+					>
+				}
+				<span style="flex: 1"></span>
+				@if (currentFolderId() === null) {
+					<button
+						type="button"
+						class="btn"
+						style="font-size: 0.72rem; padding: 3px 8px"
+						(click)="createFolder()"
+					>
+						+ Folder
+					</button>
+				}
+			</div>
+
+			<!-- Body -->
+			<div class="gallery__body" (mousedown)="onBodyMouseDown($event)">
+				<!-- INPUT tab -->
+				@if (galleryTab() === "input") {
+					@if (currentInputFolderId() === null && inputFolders().length > 0) {
+						<div class="gallery__grid" style="margin-bottom: 10px">
+							@for (folder of inputFolders(); track folder.id) {
+								<div
+									class="gallery-folder-wrap"
+									[class.drag-over]="dragOverFolderId() === folder.id"
+									(dragover)="onFolderDragOver($event)"
+									(dragenter)="onFolderDragEnter($event, folder)"
+									(dragleave)="onFolderDragLeave($event, folder)"
+									(drop)="onFolderDrop($event, folder)"
+								>
+									<button
+										type="button"
+										class="gallery-folder-item"
+										(click)="enterFolder(folder.id)"
+										(contextmenu)="
+											openFolderContextMenu($event, folder); $event.preventDefault()
+										"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											class="gallery-folder-item__icon"
+										>
+											<path
+												d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"
+											/>
+										</svg>
+										<span class="gallery-folder-item__name">{{ folder.name }}</span>
+									</button>
+									<button
+										type="button"
+										class="gallery-folder-item__delete btn"
+										title="Delete folder"
+										(click)="deleteFolder(folder, $event)"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="3 6 5 6 21 6" />
+											<path d="M19 6l-1 14H6L5 6" />
+											<path d="M10 11v6" />
+											<path d="M14 11v6" />
+											<path d="M9 6V4h6v2" />
+										</svg>
+									</button>
+								</div>
+							}
+						</div>
+					}
+					@if (visibleInputAssets().length === 0) {
+						<div class="gallery__empty">
+							{{
+								currentInputFolderId() !== null
+									? "No images in this folder."
+									: "No uploads yet."
+							}}
+						</div>
+					} @else {
+						<div class="gallery__grid">
+							@for (asset of visibleInputAssets(); track asset.id) {
+								<div
+									style="position: relative"
+									draggable="true"
+									(dragstart)="onAssetDragStart($event, asset)"
+									(mouseenter)="showImagePreview($event, asset)"
+									(mousemove)="updateImagePreviewPosition($event)"
+									(mouseleave)="hideImagePreview()"
+								>
+									<button
+										class="gallery-item"
+										type="button"
+										[attr.data-id]="asset.id"
+										[class.gallery-item--bulk-selected]="
+											gallerySelectMode() && isAssetSelected(asset.id)
+										"
+										(click)="
+											gallerySelectMode() &&
+												toggleAssetSelection(asset.id, $event, visibleInputAssets())
+										"
+										(contextmenu)="openAssetContextMenu($event, asset)"
+									>
+										<img [src]="asset.url" [alt]="asset.filename" />
+										@if (gallerySelectMode()) {
+											<div
+												class="gallery-item__checkbox"
+												[class.gallery-item__checkbox--checked]="isAssetSelected(asset.id)"
+											>
+												@if (isAssetSelected(asset.id)) {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="3"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<polyline points="20 6 9 17 4 12" />
+													</svg>
+												}
+											</div>
+										}
+									</button>
+									@if (!gallerySelectMode()) {
+										@if (asset.folderId != null) {
+											<button
+												class="gallery-item__folder-remove btn"
+												type="button"
+												title="Remove from folder"
+												(click)="removeFromFolder(asset.id)"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<path
+														d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+													/>
+													<line x1="12" y1="17" x2="12" y2="11" />
+													<polyline points="9 14 12 11 15 14" />
+												</svg>
+											</button>
+										}
+										<button
+											style="
+												position: absolute;
+												top: 3px;
+												right: 3px;
+												padding: 0px 4px;
+												border-radius: 100%;
+											"
+											class="btn"
+											type="button"
+											(click)="removeAsset(asset.id)"
+										>
+											✕
+										</button>
+									}
+								</div>
+							}
+						</div>
+					}
+				}
+
+				<!-- OUTPUT tab -->
+				@if (galleryTab() === "output") {
+					@if (currentOutputFolderId() === null && outputFolders().length > 0) {
+						<div class="gallery__grid" style="margin-bottom: 10px">
+							@for (folder of outputFolders(); track folder.id) {
+								<div
+									class="gallery-folder-wrap"
+									[class.drag-over]="dragOverFolderId() === folder.id"
+									(dragover)="onFolderDragOver($event)"
+									(dragenter)="onFolderDragEnter($event, folder)"
+									(dragleave)="onFolderDragLeave($event, folder)"
+									(drop)="onFolderDrop($event, folder)"
+								>
+									<button
+										type="button"
+										class="gallery-folder-item"
+										(click)="enterFolder(folder.id)"
+										(contextmenu)="
+											openFolderContextMenu($event, folder); $event.preventDefault()
+										"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											class="gallery-folder-item__icon"
+										>
+											<path
+												d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"
+											/>
+										</svg>
+										<span class="gallery-folder-item__name">{{ folder.name }}</span>
+									</button>
+									<button
+										type="button"
+										class="gallery-folder-item__delete btn"
+										title="Delete folder"
+										(click)="deleteFolder(folder, $event)"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="3 6 5 6 21 6" />
+											<path d="M19 6l-1 14H6L5 6" />
+											<path d="M10 11v6" />
+											<path d="M14 11v6" />
+											<path d="M9 6V4h6v2" />
+										</svg>
+									</button>
+								</div>
+							}
+						</div>
+					}
+					@if (visibleOutputAssets().length === 0) {
+						<div class="gallery__empty">
+							{{
+								currentOutputFolderId() !== null
+									? "No images in this folder."
+									: "No history yet."
+							}}
+						</div>
+					} @else {
+						<div class="gallery__grid">
+							@for (asset of visibleOutputAssets(); track asset.id) {
+								<div
+									style="position: relative"
+									draggable="true"
+									(dragstart)="onAssetDragStart($event, asset)"
+									(mouseenter)="showImagePreview($event, asset)"
+									(mousemove)="updateImagePreviewPosition($event)"
+									(mouseleave)="hideImagePreview()"
+								>
+									<button
+										class="gallery-item"
+										type="button"
+										[attr.data-id]="asset.id"
+										[class.gallery-item--bulk-selected]="
+											gallerySelectMode() && isAssetSelected(asset.id)
+										"
+										(click)="
+											gallerySelectMode() &&
+												toggleAssetSelection(asset.id, $event, visibleOutputAssets())
+										"
+										(contextmenu)="openAssetContextMenu($event, asset)"
+									>
+										<img [src]="asset.url" [alt]="asset.filename" />
+										@if (gallerySelectMode()) {
+											<div
+												class="gallery-item__checkbox"
+												[class.gallery-item__checkbox--checked]="isAssetSelected(asset.id)"
+											>
+												@if (isAssetSelected(asset.id)) {
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="3"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<polyline points="20 6 9 17 4 12" />
+													</svg>
+												}
+											</div>
+										}
+									</button>
+									@if (!gallerySelectMode()) {
+										@if (asset.folderId != null) {
+											<button
+												class="gallery-item__folder-remove btn"
+												type="button"
+												title="Remove from folder"
+												(click)="removeFromFolder(asset.id)"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<path
+														d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+													/>
+													<line x1="12" y1="17" x2="12" y2="11" />
+													<polyline points="9 14 12 11 15 14" />
+												</svg>
+											</button>
+										}
+										<button
+											style="
+												position: absolute;
+												top: 3px;
+												right: 3px;
+												padding: 0px 4px;
+												border-radius: 100%;
+											"
+											class="btn"
+											type="button"
+											(click)="removeAsset(asset.id)"
+										>
+											✕
+										</button>
+									}
+								</div>
+							}
+						</div>
+					}
+				}
+			</div>
+		</section>
+	</main>
+	<app-footer />
+</div>
+
+<!-- Rubber-band selection rect -->
+@if (rubberBand(); as rb) {
+	<div
+		class="gallery__rubber-band"
+		[style.left.px]="rb.left"
+		[style.top.px]="rb.top"
+		[style.width.px]="rb.width"
+		[style.height.px]="rb.height"
+	></div>
+}
+
+<!-- Image hover preview -->
+@if (imagePreview(); as p) {
+	<div class="gallery-preview" [style.left.px]="p.left" [style.top.px]="p.y">
+		<img
+			[src]="p.url"
+			[alt]="p.filename"
+			(load)="setImagePreviewSize($event)"
+			class="gallery-preview__img"
+		/>
+		<div
+			class="gallery-preview__caption"
+			style="
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 3px;
+				padding: 8px 10px;
+				border-top: 1px solid rgba(255, 255, 255, 0.07);
+				text-align: center;
+			"
+		>
+			<span
+				style="
+					font-size: 0.78rem;
+					color: rgba(255, 255, 255, 0.9);
+					word-break: break-all;
+					line-height: 1.4;
+				"
+				>{{ p.filename }}</span
+			>
+			@if (p.naturalWidth && p.naturalHeight) {
+				<span
+					style="
+						font-size: 0.7rem;
+						color: rgba(255, 255, 255, 0.4);
+						font-variant-numeric: tabular-nums;
+					"
+					>{{ p.naturalWidth }}×{{ p.naturalHeight }}</span
+				>
+			}
+		</div>
+	</div>
+}

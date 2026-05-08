@@ -1,0 +1,538 @@
+<div class="app">
+	<app-header />
+
+	<!-- MAIN -->
+	<main class="page">
+		<section class="panel section">
+			<div class="output__head">
+				<h2 class="output__title">Quick Flow Categories</h2>
+				<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end">
+					<button
+						class="btn"
+						type="button"
+						[disabled]="importingGroups()"
+						(click)="triggerImportGroups()"
+					>
+						@if (importingGroups()) { Importing… } @else { Import }
+					</button>
+					<button
+						class="btn"
+						type="button"
+						[disabled]="exportingGroups() || groups().length === 0"
+						(click)="exportGroups()"
+					>
+						@if (exportingGroups()) { Exporting… } @else { Export }
+					</button>
+					<button class="btn" type="button" (click)="createGroup()">+ New Group</button>
+				</div>
+			</div>
+
+			<p style="margin: 0 0 16px; padding: 8px 0 0 12px; font-size: 0.82rem; opacity: 0.5; line-height: 1.6">
+				Quick Flows let you run a pre-configured ComfyUI workflow against the current canvas image instantly.
+				Each flow requires exactly one <strong>LoadImage</strong> node — that's where your canvas image is injected.
+				Organize flows into groups (e.g. "Upscalers", "Style Transfer").
+			</p>
+
+			@if (loading()) {
+				<p style="padding: 12px; opacity: 0.5">Loading…</p>
+			} @else if (groups().length === 0) {
+				<p style="padding: 12px; opacity: 0.5">No groups yet. Create a group to get started.</p>
+			} @else {
+				<div class="qf-groups">
+					@for (group of groups(); track group.id) {
+						<div class="qf-group"
+							draggable="true"
+							(mousedown)="onGroupMouseDown($event)"
+							(dragstart)="onGroupDragStart($event, group.id)"
+							(dragover)="onGroupDragOver($event, group.id)"
+							(drop)="onGroupDrop($event, group.id)"
+							(dragend)="onGroupDragEnd()"
+							[class.qf-group--dragging]="dragSrcGroupId() === group.id"
+							[class.qf-group--drag-over]="dragOverGroupId() === group.id"
+						>
+							<!-- Group header -->
+							<div class="qf-group__header">
+								<button
+									class="qf-group__toggle"
+									type="button"
+									(click)="toggleGroup(group.id)"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="qf-group__chevron"
+										[class.qf-group__chevron--open]="isExpanded(group.id)"
+									>
+										<polyline points="6 9 12 15 18 9" />
+									</svg>
+
+									@if (renamingGroupId() === group.id) {
+										<input
+											class="control qf-group__rename-input"
+											type="text"
+											[value]="renameGroupName()"
+											(input)="renameGroupName.set($any($event.target).value)"
+											(keydown.enter)="saveRenameGroup(group)"
+											(keydown.escape)="cancelRenameGroup()"
+											(click)="$event.stopPropagation()"
+											#renameInput
+										/>
+										<button
+											class="btn btn--sm"
+											type="button"
+											(click)="saveRenameGroup(group); $event.stopPropagation()"
+										>Save</button>
+										<button
+											class="btn btn--sm"
+											type="button"
+											(click)="cancelRenameGroup(); $event.stopPropagation()"
+										>Cancel</button>
+									} @else {
+										<span class="qf-group__name">{{ group.name }}</span>
+										<span class="qf-group__count">{{ group.flows.length }} flow{{ group.flows.length === 1 ? '' : 's' }}</span>
+									}
+								</button>
+
+								@if (renamingGroupId() !== group.id) {
+									<div class="qf-group__actions">
+										<svg class="qf-flow__drag-handle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" (click)="$event.stopPropagation()">
+											<circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+											<circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+											<circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+										</svg>
+										<button
+											class="btn-icon"
+											type="button"
+											title="Rename group"
+											(click)="startRenameGroup(group)"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+											</svg>
+										</button>
+										<button
+											class="btn-icon"
+											type="button"
+											title="Delete group"
+											style="color: var(--danger)"
+											(click)="deleteGroup(group)"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"/>
+												<path d="M19 6l-1 14H6L5 6"/>
+												<path d="M10 11v6M14 11v6"/>
+												<path d="M9 6V4h6v2"/>
+											</svg>
+										</button>
+									</div>
+								}
+							</div>
+
+							<!-- Group body (flows) -->
+							@if (isExpanded(group.id)) {
+								<div class="qf-group__body"
+									(dragover)="onGroupBodyDragOver($event)"
+									(drop)="onGroupBodyDrop($event, group.id)"
+									(dragstart)="$event.stopPropagation()"
+								>
+									@if (group.flows.length === 0 && !getDraft(group.id)) {
+										<p class="qf-empty">No flows yet.</p>
+									}
+
+									@for (flow of group.flows; track flow.id) {
+										<!-- Edit mode -->
+										@if (editFlowDraft()?.flowId === flow.id) {
+											<div class="qf-flow-form">
+												<div class="qf-flow-form__header" (click)="cancelEditFlow()">
+													<span class="qf-flow-form__header-name">{{ editFlowDraft()!.draft.name || "Edit Flow" }}</span>
+													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="qf-flow-form__header-chevron">
+														<polyline points="18 15 12 9 6 15" />
+													</svg>
+												</div>
+												<div class="field">
+													<label class="label">Name *</label>
+													<input
+														class="control"
+														type="text"
+														placeholder="Flow name"
+														[value]="editFlowDraft()!.draft.name"
+														(input)="patchEditDraft({ name: $any($event.target).value })"
+													/>
+												</div>
+
+												<div class="field">
+													<div class="qf-field-header">
+														<label class="label">API Data (JSON) *</label>
+														<button class="btn-icon qf-upload-btn" type="button" title="Upload JSON file" (click)="editJsonFileInput.click()">
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+														</button>
+														<input #editJsonFileInput type="file" accept=".json" style="display:none" (change)="onEditJsonFileUpload($any($event.target).files[0]); editJsonFileInput.value=''"/>
+													</div>
+													<textarea
+														class="control qf-textarea"
+														placeholder="Paste your ComfyUI API JSON here…"
+														[value]="editFlowDraft()!.draft.api_data"
+														(input)="onEditDraftApiDataChange($any($event.target).value)"
+													></textarea>
+												</div>
+
+												<div class="field">
+													<label class="label">Image Node *</label>
+													@if (editFlowDraft()!.draft.detectedNodes.length > 0) {
+														<select
+															class="select"
+															(change)="patchEditDraft({ image_node_id: $any($event.target).value })"
+														>
+															<option value="" disabled>Select image node…</option>
+															@for (node of editFlowDraft()!.draft.detectedNodes; track node.id) {
+																<option [value]="node.id" [selected]="node.id === editFlowDraft()!.draft.image_node_id">{{ node.title }}</option>
+															}
+														</select>
+													} @else {
+														<input
+															class="control"
+															type="text"
+															placeholder="Node ID (e.g. 12)"
+															[value]="editFlowDraft()!.draft.image_node_id"
+															(input)="patchEditDraft({ image_node_id: $any($event.target).value })"
+														/>
+														<p class="qf-hint">Paste valid API JSON above to auto-detect LoadImage nodes.</p>
+													}
+												</div>
+
+												<div class="field">
+													<label class="label">Seed Node *</label>
+													@if (editFlowDraft()!.draft.detectedSeedNodes.length > 0) {
+														<select
+															class="select"
+															(change)="patchEditDraft({ seed_node_id: $any($event.target).value })"
+														>
+															<option value="" disabled>Select seed node…</option>
+															@for (node of editFlowDraft()!.draft.detectedSeedNodes; track node.id) {
+																<option [value]="node.id" [selected]="node.id === editFlowDraft()!.draft.seed_node_id">{{ node.title }}</option>
+															}
+														</select>
+													} @else {
+														<input
+															class="control"
+															type="text"
+															placeholder="Node ID (e.g. 3)"
+															[value]="editFlowDraft()!.draft.seed_node_id"
+															(input)="patchEditDraft({ seed_node_id: $any($event.target).value })"
+														/>
+													}
+												</div>
+
+												<div class="field">
+													<label class="label">Positive Prompt Node <span class="qf-optional">(optional)</span></label>
+													@if (editFlowDraft()!.draft.detectedPromptNodes.length > 0) {
+														<select
+															class="select"
+															(change)="onEditDraftPromptNodeChange($any($event.target).value)"
+														>
+															<option value="">None</option>
+															@for (node of editFlowDraft()!.draft.detectedPromptNodes; track node.id) {
+																<option [value]="node.id" [selected]="node.id === editFlowDraft()!.draft.positive_prompt_node_id">{{ node.title }}</option>
+															}
+														</select>
+													} @else {
+														<input
+															class="control"
+															type="text"
+															placeholder="Node ID (e.g. 6) or leave blank"
+															[value]="editFlowDraft()!.draft.positive_prompt_node_id"
+															(input)="onEditDraftPromptNodeChange($any($event.target).value)"
+														/>
+													}
+													@if (editFlowDraft()!.draft.positive_prompt_node_id) {
+														<textarea
+															class="control qf-textarea qf-prompt-textarea"
+															placeholder="Positive prompt…"
+															[value]="editFlowDraft()!.draft.positive_prompt_value"
+															(input)="onEditDraftPromptValueChange($any($event.target).value)"
+														></textarea>
+													}
+
+												</div>
+
+												<div class="qf-ask-section">
+													<button class="qf-ask-section__toggle" type="button" (click)="toggleAskOnRunEdit()">
+														<span>Ask On Run <span class="qf-optional">(shows input dialog …)</span></span>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="qf-ask-section__chevron" [class.qf-ask-section__chevron--open]="editFlowDraft()!.draft.askOnRunExpanded"><polyline points="6 9 12 15 18 9" /></svg>
+													</button>
+													@if (editFlowDraft()!.draft.askOnRunExpanded) {
+														<div class="qf-ask-section__body">
+															@if (editFlowDraft()!.draft.ask_on_run.length === 0) {
+																<p class="qf-hint">Expose a workflow value as a user input before each run.</p>
+															}
+															@for (param of editFlowDraft()!.draft.ask_on_run; track param.id; let i = $index) {
+																<div class="qf-ask-param">
+																	<input class="control" type="text" placeholder="Label (e.g. Megapixels)" [value]="param.label" (input)="updateParamEdit(i, 'label', $any($event.target).value)" />
+																	<div class="qf-ask-param__row">
+																		@if (editFlowDraft()!.draft.detectedNodeFields.length > 0) {
+																			<select class="select qf-ask-param__field-select" (change)="updateParamNodeFieldEdit(i, $any($event.target).value)">
+																				<option value="">Select field…</option>
+																				@for (f of getAvailableNodeFields(editFlowDraft()!.draft); track f.nodeId + '|' + f.field) {
+																					<option [value]="f.nodeId + '|' + f.field" [selected]="f.nodeId === param.node_id && f.field === param.field">{{ f.nodeTitle }} → {{ f.field }} ({{ f.value }})</option>
+																				}
+																			</select>
+																		} @else {
+																			<input class="control qf-ask-param__field-select" type="text" placeholder="node_id|field" [value]="param.node_id + (param.field ? '|' + param.field : '')" (input)="updateParamNodeFieldEdit(i, $any($event.target).value)" />
+																		}
+																		<select class="select qf-ask-param__type-select" (change)="updateParamEdit(i, 'type', $any($event.target).value)">
+																			<option value="number" [selected]="param.type === 'number'">Number</option>
+																			<option value="text" [selected]="param.type === 'text'">Text</option>
+																		</select>
+																		<input class="control qf-ask-param__default" type="text" placeholder="Default" [value]="param.default" (input)="updateParamEdit(i, 'default', $any($event.target).value)" />
+																		<button class="btn-icon" type="button" title="Remove" style="color: var(--danger); flex-shrink: 0" (click)="removeParamEdit(i)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+																	</div>
+																</div>
+															}
+															<button class="qf-add-flow-btn" type="button" (click)="addParamEdit()">+ Add Input</button>
+														</div>
+													}
+												</div>
+
+												@if (editFlowDraft()!.draft.error) {
+													<p class="qf-error">{{ editFlowDraft()!.draft.error }}</p>
+												}
+
+												<div class="btn-row btn-row--right">
+													<button class="btn" type="button" (click)="cancelEditFlow()">Cancel</button>
+													<button class="btn btn--primary" type="button" (click)="saveEditFlow()">Save</button>
+												</div>
+											</div>
+										} @else {
+											<!-- View mode -->
+											<div class="qf-flow"
+												draggable="true"
+												(dragstart)="onFlowDragStart($event, flow.id)"
+												(dragover)="onFlowDragOver($event, flow.id)"
+												(drop)="onFlowDrop($event, flow.id, group.id)"
+												(dragend)="onFlowDragEnd()"
+												[class.qf-flow--dragging]="dragSrcFlowId() === flow.id"
+												[class.qf-flow--drag-over]="dragOverFlowId() === flow.id"
+												(click)="startEditFlow(flow, group.id)"
+											>
+												<svg class="qf-flow__drag-handle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" (click)="$event.stopPropagation()">
+													<circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+													<circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+													<circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+												</svg>
+												<span class="qf-flow__name">{{ flow.name }}</span>
+												<span class="qf-flow__node-id">img: {{ flow.image_node_id }}{{ flow.seed_node_id ? ' · seed: ' + flow.seed_node_id : '' }}{{ flow.positive_prompt_node_id ? ' · prompt: ' + flow.positive_prompt_node_id : '' }}</span>
+												<div class="qf-flow__actions">
+													<button
+														class="btn-icon"
+														type="button"
+														title="Duplicate flow"
+														(click)="duplicateFlow(flow, group.id); $event.stopPropagation()"
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<rect x="9" y="9" width="13" height="13" rx="2"/>
+															<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+														</svg>
+													</button>
+													<button
+														class="btn-icon"
+														type="button"
+														title="Delete flow"
+														style="color: var(--danger)"
+														(click)="deleteFlow(flow, group.id); $event.stopPropagation()"
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"/>
+															<path d="M19 6l-1 14H6L5 6"/>
+															<path d="M10 11v6M14 11v6"/>
+															<path d="M9 6V4h6v2"/>
+														</svg>
+													</button>
+												</div>
+											</div>
+										}
+									}
+
+									<!-- Add flow form -->
+									@if (getDraft(group.id); as draft) {
+										<div class="qf-flow-form">
+											<div class="field">
+												<label class="label">Name *</label>
+												<input
+													class="control"
+													type="text"
+													placeholder="Flow name"
+													[value]="draft.name"
+													(input)="patchDraft(group.id, { name: $any($event.target).value })"
+												/>
+											</div>
+
+											<div class="field">
+												<div class="qf-field-header">
+													<label class="label">API Data (JSON) *</label>
+													<button class="btn-icon qf-upload-btn" type="button" title="Upload JSON file" (click)="addJsonFileInput.click()">
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+													</button>
+													<input #addJsonFileInput type="file" accept=".json" style="display:none" (change)="onAddJsonFileUpload(group.id, $any($event.target).files[0]); addJsonFileInput.value=''"/>
+												</div>
+												<textarea
+													class="control qf-textarea"
+													placeholder="Paste your ComfyUI API JSON here…"
+													[value]="draft.api_data"
+													(input)="onDraftApiDataChange(group.id, $any($event.target).value)"
+												></textarea>
+											</div>
+
+											<div class="field">
+												<label class="label">Image Node *</label>
+												@if (draft.detectedNodes.length > 0) {
+													<select
+														class="select"
+														(change)="patchDraft(group.id, { image_node_id: $any($event.target).value })"
+													>
+														<option value="" disabled>Select image node…</option>
+														@for (node of draft.detectedNodes; track node.id) {
+															<option [value]="node.id" [selected]="node.id === draft.image_node_id">{{ node.title }}</option>
+														}
+													</select>
+												} @else {
+													<input
+														class="control"
+														type="text"
+														placeholder="Node ID (e.g. 12)"
+														[value]="draft.image_node_id"
+														(input)="patchDraft(group.id, { image_node_id: $any($event.target).value })"
+													/>
+													<p class="qf-hint">Paste valid API JSON above to auto-detect LoadImage nodes.</p>
+												}
+											</div>
+
+											<div class="field">
+												<label class="label">Seed Node *</label>
+												@if (draft.detectedSeedNodes.length > 0) {
+													<select
+														class="select"
+														(change)="patchDraft(group.id, { seed_node_id: $any($event.target).value })"
+													>
+														<option value="" disabled>Select seed node…</option>
+														@for (node of draft.detectedSeedNodes; track node.id) {
+															<option [value]="node.id" [selected]="node.id === draft.seed_node_id">{{ node.title }}</option>
+														}
+													</select>
+												} @else {
+													<input
+														class="control"
+														type="text"
+														placeholder="Node ID (e.g. 3)"
+														[value]="draft.seed_node_id"
+														(input)="patchDraft(group.id, { seed_node_id: $any($event.target).value })"
+													/>
+												}
+											</div>
+
+											<div class="field">
+												<label class="label">Positive Prompt Node <span class="qf-optional">(optional)</span></label>
+												@if (draft.detectedPromptNodes.length > 0) {
+													<select
+														class="select"
+														(change)="onDraftPromptNodeChange(group.id, $any($event.target).value)"
+													>
+														<option value="">None</option>
+														@for (node of draft.detectedPromptNodes; track node.id) {
+															<option [value]="node.id" [selected]="node.id === draft.positive_prompt_node_id">{{ node.title }}</option>
+														}
+													</select>
+												} @else {
+													<input
+														class="control"
+														type="text"
+														placeholder="Node ID (e.g. 6) or leave blank"
+														[value]="draft.positive_prompt_node_id"
+														(input)="onDraftPromptNodeChange(group.id, $any($event.target).value)"
+													/>
+												}
+												@if (draft.positive_prompt_node_id) {
+													<textarea
+														class="control qf-textarea qf-prompt-textarea"
+														placeholder="Positive prompt…"
+														[value]="draft.positive_prompt_value"
+														(input)="onDraftPromptValueChange(group.id, $any($event.target).value)"
+													></textarea>
+												}
+											</div>
+
+											<div class="qf-ask-section">
+												<button class="qf-ask-section__toggle" type="button" (click)="toggleAskOnRun(group.id)">
+													<span>Ask On Run <span class="qf-optional">(shows input dialog …)</span></span>
+													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="qf-ask-section__chevron" [class.qf-ask-section__chevron--open]="draft.askOnRunExpanded"><polyline points="6 9 12 15 18 9" /></svg>
+												</button>
+												@if (draft.askOnRunExpanded) {
+													<div class="qf-ask-section__body">
+														@if (draft.ask_on_run.length === 0) {
+															<p class="qf-hint">Expose a workflow value as a user input before each run.</p>
+														}
+														@for (param of draft.ask_on_run; track param.id; let i = $index) {
+															<div class="qf-ask-param">
+																<input class="control" type="text" placeholder="Label (e.g. Megapixels)" [value]="param.label" (input)="updateParam(group.id, i, 'label', $any($event.target).value)" />
+																<div class="qf-ask-param__row">
+																	@if (draft.detectedNodeFields.length > 0) {
+																		<select class="select qf-ask-param__field-select" (change)="updateParamNodeField(group.id, i, $any($event.target).value)">
+																			<option value="">Select field…</option>
+																			@for (f of getAvailableNodeFields(draft); track f.nodeId + '|' + f.field) {
+																				<option [value]="f.nodeId + '|' + f.field" [selected]="f.nodeId === param.node_id && f.field === param.field">{{ f.nodeTitle }} → {{ f.field }} ({{ f.value }})</option>
+																			}
+																		</select>
+																	} @else {
+																		<input class="control qf-ask-param__field-select" type="text" placeholder="node_id|field" [value]="param.node_id + (param.field ? '|' + param.field : '')" (input)="updateParamNodeField(group.id, i, $any($event.target).value)" />
+																	}
+																	<select class="select qf-ask-param__type-select" (change)="updateParam(group.id, i, 'type', $any($event.target).value)">
+																		<option value="number" [selected]="param.type === 'number'">Number</option>
+																		<option value="text" [selected]="param.type === 'text'">Text</option>
+																	</select>
+																	<input class="control qf-ask-param__default" type="text" placeholder="Default" [value]="param.default" (input)="updateParam(group.id, i, 'default', $any($event.target).value)" />
+																	<button class="btn-icon" type="button" title="Remove" style="color: var(--danger); flex-shrink: 0" (click)="removeParam(group.id, i)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+																</div>
+															</div>
+														}
+														<button class="qf-add-flow-btn" type="button" (click)="addParam(group.id)">+ Add Input</button>
+													</div>
+												}
+											</div>
+
+											@if (draft.error) {
+												<p class="qf-error">{{ draft.error }}</p>
+											}
+
+											<div class="btn-row btn-row--right">
+												<button class="btn" type="button" (click)="cancelAddFlow(group.id)">Cancel</button>
+												<button class="btn btn--primary" type="button" (click)="saveAddFlow(group.id)">Add Flow</button>
+											</div>
+										</div>
+									} @else {
+										<button
+											class="qf-add-flow-btn"
+											type="button"
+											(click)="startAddFlow(group.id)"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px">
+												<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+											</svg>
+											Add Flow
+										</button>
+									}
+								</div>
+							}
+						</div>
+					}
+				</div>
+			}
+		</section>
+	</main>
+
+	<app-footer />
+</div>

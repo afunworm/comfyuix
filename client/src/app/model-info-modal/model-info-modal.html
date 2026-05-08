@@ -1,0 +1,193 @@
+<div class="backdrop" (click)="close.emit()"></div>
+<div class="dialog model-info-modal__dialog">
+	<div class="dialog__head">
+		<h2 class="dialog__title">{{ entry.name }}</h2>
+		<button class="btn-icon" type="button" (click)="close.emit()" aria-label="Close">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+		</button>
+	</div>
+	<div class="dialog__body model-info-modal__body">
+
+		<!-- external model info -->
+		@if (modelInfoLoading()) {
+			<p class="model-info-modal__loading">Loading model info…</p>
+		} @else if (modelInfoError()) {
+			<p class="model-info-modal__error">{{ modelInfoError() }}</p>
+		} @else if (modelInfo()?.source === "civitai" && modelInfo()?.data) {
+			@let cv = modelInfo().data;
+			<div class="model-info-modal__section">
+				<h3 class="model-info-modal__heading">
+					<span class="badge badge--civitai">CivitAI</span>
+					{{ cv.model?.name }} &mdash; {{ cv.name }}
+				</h3>
+				<div class="model-info-modal__row">
+					<div class="model-info-modal__field"><span class="model-info-modal__label">Version ID</span><span>{{ cv.id }}</span></div>
+					<div class="model-info-modal__field"><span class="model-info-modal__label">Model ID</span><span>{{ cv.modelId }}</span></div>
+					<div class="model-info-modal__field"><span class="model-info-modal__label">NSFW level</span><span>{{ cv.nsfwLevel }}</span></div>
+					@if (cv.baseModel) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Base model</span><span>{{ cv.baseModel }}</span></div>
+					}
+					@if (cv.baseModelType) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Base type</span><span>{{ cv.baseModelType }}</span></div>
+					}
+					@if (cv.model?.type) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Type</span><span>{{ cv.model.type }}</span></div>
+					}
+					@if (cv.model?.nsfw !== undefined) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">NSFW</span><span>{{ cv.model.nsfw }}</span></div>
+					}
+					@if (cv.model?.poi !== undefined) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">POI</span><span>{{ cv.model.poi }}</span></div>
+					}
+					@if (cv.stats?.downloadCount !== undefined) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Downloads</span><span>{{ cv.stats.downloadCount | number }}</span></div>
+					}
+					@if (cv.stats?.thumbsUpCount !== undefined) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Thumbs up</span><span>{{ cv.stats.thumbsUpCount | number }}</span></div>
+					}
+					@if (cv.air) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">AIR</span><span style="font-family:monospace;font-size:0.78rem">{{ cv.air }}</span></div>
+					}
+				</div>
+				@if (cv.trainedWords?.length) {
+					<div class="model-info-modal__field">
+						<span class="model-info-modal__label">Trigger words</span>
+						<div class="model-info-modal__tags">
+							@for (w of cv.trainedWords; track w) { <span class="model-info-modal__tag">{{ w }}</span> }
+						</div>
+					</div>
+				}
+				@if (cv.model?.tags?.length) {
+					<div class="model-info-modal__field">
+						<span class="model-info-modal__label">Tags</span>
+						<div class="model-info-modal__tags">
+							@for (t of cv.model.tags; track t) { <span class="model-info-modal__tag">{{ t }}</span> }
+						</div>
+					</div>
+				}
+				@if (cv.description) {
+					<details class="model-info-modal__raw">
+						<summary>Description</summary>
+						<p style="font-size:0.85rem;line-height:1.6;margin:8px 0 0">{{ stripHtml(cv.description) }}</p>
+					</details>
+				}
+				@if (cv.images?.length) {
+					@let img = cv.images[imageIndex()];
+					<div class="model-info-modal__gallery">
+						<div class="model-info-modal__gallery-nav">
+							<button class="btn-icon" type="button" [disabled]="imageIndex() === 0" (click)="prevImage()">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+							</button>
+							<span class="model-info-modal__gallery-counter">{{ imageIndex() + 1 }} / {{ cv.images.length }}</span>
+							<button class="btn-icon" type="button" [disabled]="imageIndex() === cv.images.length - 1" (click)="nextImage()">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+							</button>
+							@if (isImageNsfw()) {
+								<button class="btn" type="button" style="font-size:0.78rem;padding:3px 10px" (click)="toggleNsfw()">Show NSFW</button>
+							} @else if (showNsfw()) {
+								<button class="btn" type="button" style="font-size:0.78rem;padding:3px 10px;color:var(--muted)" (click)="toggleNsfw()">Hide</button>
+							}
+						</div>
+						<div class="model-info-modal__gallery-img">
+							@if (isImageNsfw()) {
+								<div class="model-info-modal__gallery-nsfw">NSFW &mdash; hidden</div>
+							} @else {
+								<img [src]="img.url" [alt]="'Image ' + (imageIndex() + 1)" loading="lazy" />
+							}
+						</div>
+						<div class="model-info-modal__gallery-meta">
+							@if (img.nsfwLevel !== undefined) { <div class="model-info-modal__field"><span class="model-info-modal__label">NSFW level</span><span>{{ img.nsfwLevel }}</span></div> }
+							@if (img.width && img.height) { <div class="model-info-modal__field"><span class="model-info-modal__label">Size</span><span>{{ img.width }} × {{ img.height }}</span></div> }
+							@if (img.meta?.steps) { <div class="model-info-modal__field"><span class="model-info-modal__label">Steps</span><span>{{ img.meta.steps }}</span></div> }
+							@if (img.meta?.sampler) { <div class="model-info-modal__field"><span class="model-info-modal__label">Sampler</span><span>{{ img.meta.sampler }}</span></div> }
+							@if (img.meta?.cfgScale) { <div class="model-info-modal__field"><span class="model-info-modal__label">CFG Scale</span><span>{{ img.meta.cfgScale }}</span></div> }
+						</div>
+						@if (img.meta?.prompt) {
+							<div class="model-info-modal__field" style="width:100%">
+								<span class="model-info-modal__label">Prompt</span>
+								<pre class="model-info-modal__gallery-prompt">{{ img.meta.prompt }}</pre>
+							</div>
+						}
+						@if (img.meta?.negativePrompt) {
+							<div class="model-info-modal__field" style="width:100%">
+								<span class="model-info-modal__label">Negative prompt</span>
+								<pre class="model-info-modal__gallery-prompt">{{ img.meta.negativePrompt }}</pre>
+							</div>
+						}
+						@if (img.meta?.comfy) {
+							<details class="model-info-modal__raw" style="width:100%">
+								<summary>ComfyUI workflow</summary>
+								<pre>{{ img.meta.comfy | json }}</pre>
+							</details>
+						}
+					</div>
+				}
+				<details class="model-info-modal__raw">
+					<summary>Raw API response</summary>
+					<pre>{{ cv | json }}</pre>
+				</details>
+			</div>
+		} @else if (modelInfo()?.source === "huggingface" && modelInfo()?.data) {
+			<div class="model-info-modal__section">
+				<h3 class="model-info-modal__heading">
+					<span class="badge badge--hf">HuggingFace</span>
+					{{ modelInfo().data.id || modelInfo().data.modelId }}
+				</h3>
+				<div class="model-info-modal__row">
+					@if (modelInfo().data.pipeline_tag) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Pipeline</span><span>{{ modelInfo().data.pipeline_tag }}</span></div>
+					}
+					@if (modelInfo().data.library_name) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Library</span><span>{{ modelInfo().data.library_name }}</span></div>
+					}
+					@if (modelInfo().data.downloads !== undefined) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Downloads</span><span>{{ modelInfo().data.downloads | number }}</span></div>
+					}
+					@if (modelInfo().data.likes !== undefined) {
+						<div class="model-info-modal__field"><span class="model-info-modal__label">Likes</span><span>{{ modelInfo().data.likes | number }}</span></div>
+					}
+				</div>
+				@if (modelInfo().data.tags?.length) {
+					<div class="model-info-modal__field">
+						<span class="model-info-modal__label">Tags</span>
+						<div class="model-info-modal__tags">
+							@for (t of modelInfo().data.tags; track t) { <span class="model-info-modal__tag">{{ t }}</span> }
+						</div>
+					</div>
+				}
+				<details class="model-info-modal__raw">
+					<summary>Raw API response</summary>
+					<pre>{{ modelInfo().data | json }}</pre>
+				</details>
+			</div>
+		} @else if (modelInfo()?.error) {
+			<p class="model-info-modal__error">{{ modelInfo().error }}</p>
+		} @else if (modelInfo()?.source === "unknown") {
+			<p class="model-info-modal__loading">Not in manifest — no external info available.</p>
+		}
+
+		<!-- safetensors metadata -->
+		@if (fileMetaLoading()) {
+			<p class="model-info-modal__loading">Reading file header…</p>
+		} @else if (fileMetaError()) {
+			<p class="model-info-modal__error">{{ fileMetaError() }}</p>
+		} @else if (fileMeta()) {
+			<div class="model-info-modal__section">
+				<h3 class="model-info-modal__heading">Safetensors header</h3>
+				<table class="model-info-modal__meta-table">
+					<tbody>
+						@for (row of metaRows(fileMeta()!); track row.k) {
+							<tr>
+								<td class="model-info-modal__meta-key">{{ row.k }}</td>
+								<td class="model-info-modal__meta-val"><pre style="margin:0;white-space:pre-wrap;word-break:break-all">{{ row.v }}</pre></td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		} @else {
+			<p class="model-info-modal__loading">No safetensors metadata in this file.</p>
+		}
+
+	</div>
+</div>
