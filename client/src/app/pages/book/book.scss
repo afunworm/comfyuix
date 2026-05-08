@@ -1301,8 +1301,9 @@
 		flex-shrink: 0;
 		padding: 0 6px;
 		height: 32px;
-		cursor: default;
+		cursor: pointer;
 		overflow: visible;
+		text-decoration: none;
 
 		&:hover {
 			.viewer__nav-label {

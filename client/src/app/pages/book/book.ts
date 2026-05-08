@@ -48,7 +48,7 @@ import { AuthService } from "../../auth/auth.service";
 import { CanvasEditorService } from "../../canvas-editor";
 import { tap } from "rxjs/operators";
 import { firstValueFrom, Observable } from "rxjs";
-import { Router } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 import { EXPECTED_TUNNEL_VERSION } from "../../version";
 import { ModelInfoModal } from "../../model-info-modal/model-info-modal";
 import { MultirunPanelComponent } from "./multirun-panel.component";
@@ -83,7 +83,7 @@ interface LogEntry {
 
 @Component({
 	selector: "app-flow",
-	imports: [CommonModule, SpinnerComponent, ModelInfoModal, MultirunPanelComponent, GalleryModeComponent, SysHudComponent, ImageCompareComponent, LayerPanelComponent],
+	imports: [CommonModule, RouterLink, SpinnerComponent, ModelInfoModal, MultirunPanelComponent, GalleryModeComponent, SysHudComponent, ImageCompareComponent, LayerPanelComponent],
 	providers: [LayerPanelService],
 	templateUrl: "./book.html",
 	styleUrl: "./book.scss",
