@@ -1193,6 +1193,7 @@ export class Book implements AfterViewInit {
 			const { promptId, seed, apiData } = await firstValueFrom(
 				this.db.submitFlow(this.bookId, { flowId: flow.id!, templateId, overrides }),
 			);
+			this.lastPromptJson.set(JSON.stringify(apiData, null, 2));
 			this.currentPromptId.set(promptId);
 			if (seed !== undefined && totalCount === 1) this.setConfigValue('seed', seed);
 			if (this.queuePollTimer === null) this.startQueuePoll(this.bookId);
@@ -1280,6 +1281,7 @@ export class Book implements AfterViewInit {
 						overrides,
 					}),
 				);
+				this.lastPromptJson.set(JSON.stringify(apiData, null, 2));
 				this.currentPromptId.set(promptId);
 
 				const result = await firstValueFrom(this.db.waitFlowResult(this.bookId, promptId));
@@ -2313,6 +2315,7 @@ export class Book implements AfterViewInit {
 
 		try {
 			const { promptId } = await firstValueFrom(this.db.submitFlowRaw(this.bookId, apiData));
+			this.lastPromptJson.set(JSON.stringify(apiData, null, 2));
 			this.currentPromptId.set(promptId);
 			this.startQueuePoll(this.bookId);
 			firstValueFrom(this.db.getQueueStatus(this.bookId)).then((status) => {
@@ -2874,6 +2877,7 @@ export class Book implements AfterViewInit {
 			if (!canvasSize && !this.isInputImageFlow()) this.syncPhotoURL("Generating...");
 
 			const { promptId } = await firstValueFrom(this.db.submitFlowRaw(this.bookId, apiData));
+			this.lastPromptJson.set(JSON.stringify(apiData, null, 2));
 			this.currentPromptId.set(promptId);
 			this.startQueuePoll(this.bookId);
 			firstValueFrom(this.db.getQueueStatus(this.bookId)).then((status) => {
