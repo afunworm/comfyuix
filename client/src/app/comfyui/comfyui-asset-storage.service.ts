@@ -146,6 +146,35 @@ export class ImageAssetStorageService {
 		}
 	}
 
+	pushLocalAsset(
+		kind: ImageSourceKind,
+		asset: Omit<StoredImageAsset, 'id' | 'createdAt'> & { id?: string; createdAt?: string },
+	): StoredImageAsset | undefined {
+		const filename = (asset.filename ?? '').trim();
+		const url = (asset.url ?? '').trim();
+		if (!filename || !url) return undefined;
+
+		const normalized: StoredImageAsset = {
+			id: asset.id ?? crypto.randomUUID(),
+			filename,
+			url,
+			subfolder: asset.subfolder,
+			type: kind,
+			apiData: asset.apiData,
+			promptPositive: asset.promptPositive,
+			promptNegative: asset.promptNegative,
+			seed: asset.seed,
+			folderId: null,
+			bookId: this.bookId ?? undefined,
+			createdAt: asset.createdAt ?? new Date().toISOString(),
+			sourceAssetId: asset.sourceAssetId ?? null,
+			layerData: asset.layerData ?? null,
+		};
+
+		this.assets$.update((current) => [normalized, ...current.filter((a) => a.id !== normalized.id)]);
+		return normalized;
+	}
+
 	getAssetById(id: string): StoredImageAsset | undefined {
 		return this.assets$().find((a) => a.id === id);
 	}

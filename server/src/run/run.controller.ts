@@ -30,8 +30,10 @@ export class RunController {
 	waitResult(
 		@Param('bookId') bookId: string,
 		@Param('promptId') promptId: string,
+		@Req() req: any,
+		@Body() body: { apiData?: string; promptPositive?: string; promptNegative?: string; seed?: string },
 	) {
-		return this.runService.waitResult(bookId, promptId);
+		return this.runService.waitResult(bookId, promptId, req.user?.id, body);
 	}
 
 	@UseGuards(OptionalJwtAuthGuard)

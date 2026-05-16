@@ -44,6 +44,8 @@ export class GalleryPage implements OnInit {
 	dragOverFolderId = signal<number | null>(null);
 	selectedBookId = signal<string | null>(null);
 	books = signal<{ id: string; name: string }[]>([]);
+	syncing = signal<boolean>(false);
+	syncMessage = signal<string | null>(null);
 	rubberBand = signal<{ left: number; top: number; width: number; height: number } | null>(null);
 	private lastSelectedIndex = -1;
 
@@ -396,8 +398,6 @@ export class GalleryPage implements OnInit {
 		for (const id of ids) this.assetService.moveAssetToFolder(id, folder.id);
 	}
 
-	// ── Context menus ──────────────────────────────────────────────────────────
-
 	buildMoveToFolderChildren(asset: StoredImageAsset): any[] {
 		const tab = asset.type === "output" ? "output" : "input";
 		const folders = tab === "input" ? this.inputFolders() : this.outputFolders();
@@ -449,6 +449,53 @@ export class GalleryPage implements OnInit {
 			window.open(url, "_blank", "noopener,noreferrer");
 		}
 	}
+
+	// ── Sync ──────────────────────────────────────────────────────────────────
+
+	async syncImport(): Promise<void> {
+		const bookId = this.selectedBookId();
+		if (!bookId || this.syncing()) return;
+		this.syncing.set(true);
+		this.syncMessage.set(null);
+		try {
+			const result = await lastValueFrom(this.db.syncImport(bookId));
+			this.syncMessage.set(
+				result.created > 0
+					? `Imported ${result.created} file${result.created !== 1 ? 's' : ''} from server.`
+					: 'No new files found on server.',
+			);
+			if (result.created > 0) await this.assetService.initialize();
+		} catch {
+			this.syncMessage.set('Sync failed. Is the server connected?');
+		} finally {
+			this.syncing.set(false);
+		}
+	}
+
+	async syncClean(): Promise<void> {
+		const bookId = this.selectedBookId();
+		if (!bookId || this.syncing()) return;
+		const confirmed = await this.dialog.confirm(
+			'Delete all files on the ComfyUI server that have no database record for this book? This cannot be undone.',
+		);
+		if (!confirmed) return;
+		this.syncing.set(true);
+		this.syncMessage.set(null);
+		try {
+			const result = await lastValueFrom(this.db.syncClean(bookId));
+			this.syncMessage.set(
+				result.deleted > 0
+					? `Deleted ${result.deleted} untracked file${result.deleted !== 1 ? 's' : ''} from server.`
+					: 'No untracked files found on server.',
+			);
+		} catch {
+			this.syncMessage.set('Sync failed. Is the server connected?');
+		} finally {
+			this.syncing.set(false);
+		}
+	}
+
+	// ── Context menus ──────────────────────────────────────────────────────────
 
 	openAssetContextMenu(ev: MouseEvent, asset: StoredImageAsset): void {
 		const url = asset.url;

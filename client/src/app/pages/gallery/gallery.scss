@@ -106,6 +106,26 @@
 		padding: 3px 8px;
 	}
 
+	&__sync {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 10px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+		flex-shrink: 0;
+
+		.btn {
+			font-size: 0.72rem;
+			padding: 3px 8px;
+		}
+	}
+
+	&__sync-status {
+		font-size: 0.72rem;
+		color: rgba(255, 255, 255, 0.45);
+		margin-left: 4px;
+	}
+
 	&__folder-nav {
 		display: flex;
 		align-items: center;

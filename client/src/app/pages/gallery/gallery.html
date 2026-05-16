@@ -97,6 +97,35 @@
 				</div>
 			}
 
+			<!-- Sync -->
+			@if (galleryTab() === 'output' && selectedBookId()) {
+				<div class="gallery__sync">
+					<button
+						type="button"
+						class="btn"
+						[disabled]="syncing()"
+						(click)="syncImport()"
+						title="Create database records for generated files on the server that aren't registered yet"
+					>
+						Import from Server
+					</button>
+					<button
+						type="button"
+						class="btn"
+						[disabled]="syncing()"
+						(click)="syncClean()"
+						title="Delete files from the ComfyUI server that have no database record"
+					>
+						Clean Server Files
+					</button>
+					@if (syncing()) {
+						<span class="gallery__sync-status">Syncing…</span>
+					} @else if (syncMessage()) {
+						<span class="gallery__sync-status">{{ syncMessage() }}</span>
+					}
+				</div>
+			}
+
 			<!-- Folder nav -->
 			<div class="gallery__folder-nav">
 				@if (currentFolderId() !== null) {

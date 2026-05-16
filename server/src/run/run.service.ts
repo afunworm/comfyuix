@@ -49,7 +49,12 @@ export class RunService {
 		return { promptId, seed, apiData };
 	}
 
-	async waitResult(bookId: string, promptId: string): Promise<RunResult> {
+	async waitResult(
+		bookId: string,
+		promptId: string,
+		userId?: number,
+		meta?: { apiData?: string; promptPositive?: string; promptNegative?: string; seed?: string },
+	): Promise<RunResult> {
 		const book = this.db
 			.prepare('SELECT server_id FROM book WHERE id = ?')
 			.get(bookId) as any;
@@ -60,7 +65,21 @@ export class RunService {
 			throw new ServiceUnavailableException('No tunnel connected for this book');
 		}
 
-		return this.finishRun(bookId, serverId, promptId);
+		const result = await this.finishRun(bookId, serverId, promptId);
+
+		if (userId) {
+			await this.assetsService.create(userId, {
+				url: result.viewPath,
+				type: 'output',
+				bookId,
+				apiData: meta?.apiData,
+				promptPositive: meta?.promptPositive,
+				promptNegative: meta?.promptNegative,
+				seed: meta?.seed,
+			});
+		}
+
+		return result;
 	}
 
 	async uploadImage(

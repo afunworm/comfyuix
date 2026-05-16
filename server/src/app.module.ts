@@ -19,6 +19,7 @@ import { BookModelsModule } from "./book-models/book-models.module";
 import { ServersModule } from "./servers/servers.module";
 import { MultirunPresetsModule } from "./multirun-presets/multirun-presets.module";
 import { RunModule } from "./run/run.module";
+import { SyncModule } from "./sync/sync.module";
 
 @Module({
 	controllers: [AppController],
@@ -45,6 +46,7 @@ import { RunModule } from "./run/run.module";
 		ServersModule,
 		MultirunPresetsModule,
 		RunModule,
+		SyncModule,
 		ProxyModule,
 	],
 	providers: [

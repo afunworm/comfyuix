@@ -802,9 +802,27 @@ export class ComfyUIDatabaseService {
 		);
 	}
 
-	waitFlowResult(bookId: string, promptId: string): Observable<RunResult> {
+	waitFlowResult(
+		bookId: string,
+		promptId: string,
+		meta?: { apiData?: string; promptPositive?: string; promptNegative?: string; seed?: string },
+	): Observable<RunResult> {
 		return this.http.post<RunResult>(
 			`${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}/run/wait/${encodeURIComponent(promptId)}`,
+			meta ?? {},
+		);
+	}
+
+	syncImport(bookId: string): Observable<{ created: number; skipped: number }> {
+		return this.http.post<{ created: number; skipped: number }>(
+			`${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}/sync/import`,
+			{},
+		);
+	}
+
+	syncClean(bookId: string): Observable<{ deleted: number; skipped: number }> {
+		return this.http.post<{ deleted: number; skipped: number }>(
+			`${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}/sync/clean`,
 			{},
 		);
 	}

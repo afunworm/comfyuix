@@ -1202,13 +1202,20 @@ export class Book implements AfterViewInit {
 				if (total > 1) this.log(`${label}Queue position: ${total} jobs running/pending (${total - 1} ahead).`, 'warn');
 			}).catch(() => {});
 
-			const result = await firstValueFrom(this.db.waitFlowResult(this.bookId, promptId));
+			const seedTarget = this.activeFlow()?.configurables.find(c => c.id === 'seed')?.target;
+			const result = await firstValueFrom(
+				this.db.waitFlowResult(this.bookId, promptId, {
+					apiData: JSON.stringify(apiData),
+					promptPositive: this.getConfigValue('positivePrompt') as string | undefined,
+					promptNegative: this.getConfigValue('negativePrompt') as string | undefined,
+					seed: seedTarget ? seedTarget.replace(/^\//, '') : undefined,
+				}),
+			);
 			const fileURL = this.db.httpEndpoint() + result.viewPath;
 			this.log(`${label}Result: <a href="${fileURL}" target="_BLANK">${fileURL}</a>.`);
 			this.resultPhotoURL.set(fileURL);
 
-			const seedTarget = this.activeFlow()?.configurables.find(c => c.id === 'seed')?.target;
-			await this.assetService.addAsset('output', {
+			this.assetService.pushLocalAsset('output', {
 				filename: result.filename,
 				subfolder: result.subfolder,
 				type: 'input',
@@ -1284,13 +1291,18 @@ export class Book implements AfterViewInit {
 				this.lastPromptJson.set(JSON.stringify(apiData, null, 2));
 				this.currentPromptId.set(promptId);
 
-				const result = await firstValueFrom(this.db.waitFlowResult(this.bookId, promptId));
+				const seedTargetMr = this.activeFlow()?.configurables.find(c => c.id === 'seed')?.target;
+				const result = await firstValueFrom(
+					this.db.waitFlowResult(this.bookId, promptId, {
+						apiData: JSON.stringify(apiData),
+						seed: seedTargetMr ? seedTargetMr.replace(/^\//, '') : undefined,
+					}),
+				);
 
 				const fileURL = this.db.httpEndpoint() + result.viewPath;
 				this.resultPhotoURL.set(fileURL);
 
-				const seedTargetMr = this.activeFlow()?.configurables.find(c => c.id === 'seed')?.target;
-				const added = await this.assetService.addAsset('output', {
+				const added = this.assetService.pushLocalAsset('output', {
 					filename: result.filename,
 					subfolder: result.subfolder,
 					type: 'input',
