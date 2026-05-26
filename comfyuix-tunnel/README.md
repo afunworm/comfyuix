@@ -25,12 +25,14 @@ npm install
 
 2. Set the required environment variables:
 
-| Variable              | Required | Default     | Description                                              |
-| --------------------- | -------- | ----------- | -------------------------------------------------------- |
-| `COMFYUIX_SERVER_URL` | Yes      | —           | Your ComfyUIX server hostname (e.g. `yourserver.com`)    |
-| `COMFYUIX_TOKEN`      | Yes      | —           | 64-char hex token from your book's tunnel settings       |
-| `COMFY_HOST`          | No       | `127.0.0.1` | Host where ComfyUI is running                            |
-| `COMFY_PORT`          | No       | `8188`      | Port where ComfyUI is listening                          |
+| Variable              | Required | Default                      | Description                                              |
+| --------------------- | -------- | ---------------------------- | -------------------------------------------------------- |
+| `COMFYUIX_SERVER_URL` | Yes      | —                            | Your ComfyUIX server hostname (e.g. `yourserver.com`)    |
+| `COMFYUIX_TOKEN`      | Yes      | —                            | 64-char hex token from your book's tunnel settings       |
+| `COMFY_HOST`          | No       | `127.0.0.1`                  | Host where ComfyUI is running                            |
+| `COMFY_PORT`          | No       | `8188`                       | Port where ComfyUI is listening                          |
+| `MODELS_PATH`         | No       | `/models`                    | Absolute path to the ComfyUI models directory            |
+| `OUTPUT_PATH`         | No       | `../output` rel. to models   | Absolute path to the ComfyUI output directory            |
 
 3. Run:
 

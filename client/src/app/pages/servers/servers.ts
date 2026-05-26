@@ -204,11 +204,13 @@ export class ServersPage implements OnInit {
 		const serverUrl = (this.tunnelServerUrlOverrides()[serverId] ?? this.tunnelServerUrl()).trim();
 		const isLinux = true;
 		const hostModelsPath = isLinux ? "/root/ComfyUI/models" : "C:/Users/username/ComfyUI/models";
+		const hostOutputPath = isLinux ? "/root/ComfyUI/output" : "C:/Users/username/ComfyUI/output";
 		return [
 			"docker run -d --restart unless-stopped \\",
 			"  --name comfyuix-tunnel \\",
 			...(isLinux ? ["  --network host \\"] : []),
 			`  -v ${hostModelsPath}:/models \\`,
+			`  -v ${hostOutputPath}:/output \\`,
 			`  -e COMFYUIX_SERVER_URL=${serverUrl} \\`,
 			`  -e COMFYUIX_TOKEN=${token} \\`,
 			`  -e COMFY_HOST=${isLinux ? "127.0.0.1" : "host.docker.internal"} \\`,
@@ -222,6 +224,7 @@ export class ServersPage implements OnInit {
 		const serverUrl = (this.tunnelServerUrlOverrides()[serverId] ?? this.tunnelServerUrl()).trim();
 		const isLinux = true;
 		const hostModelsPath = isLinux ? "/root/ComfyUI/models" : "C:/Users/username/ComfyUI/models";
+		const hostOutputPath = isLinux ? "/root/ComfyUI/output" : "C:/Users/username/ComfyUI/output";
 		return [
 			"services:",
 			"  comfyuix-tunnel:",
@@ -230,6 +233,7 @@ export class ServersPage implements OnInit {
 			...(isLinux ? ["    network_mode: host"] : []),
 			"    volumes:",
 			`      - ${hostModelsPath}:/models`,
+			`      - ${hostOutputPath}:/output`,
 			"    environment:",
 			`      - COMFYUIX_SERVER_URL=${serverUrl}`,
 			`      - COMFYUIX_TOKEN=${token}`,
@@ -243,6 +247,7 @@ export class ServersPage implements OnInit {
 		const serverUrl = (this.tunnelServerUrlOverrides()[serverId] ?? this.tunnelServerUrl()).trim();
 		const isLinux = true;
 		const modelsPath = isLinux ? "/root/ComfyUI/models" : "C:/Users/username/ComfyUI/models";
-		return `COMFYUIX_SERVER_URL=${serverUrl} COMFYUIX_TOKEN=${token} COMFY_HOST=${isLinux ? "127.0.0.1" : "host.docker.internal"} COMFY_PORT=8188 MODELS_PATH=${modelsPath} node index.js`;
+		const outputPath = isLinux ? "/root/ComfyUI/output" : "C:/Users/username/ComfyUI/output";
+		return `COMFYUIX_SERVER_URL=${serverUrl} COMFYUIX_TOKEN=${token} COMFY_HOST=${isLinux ? "127.0.0.1" : "host.docker.internal"} COMFY_PORT=8188 MODELS_PATH=${modelsPath} OUTPUT_PATH=${outputPath} node index.js`;
 	}
 }
