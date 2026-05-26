@@ -22,6 +22,7 @@ const TOKEN = process.env.COMFYUIX_TOKEN;
 const COMFY_HOST = process.env.COMFY_HOST || "127.0.0.1";
 const COMFY_PORT = parseInt(process.env.COMFY_PORT || "8188", 10);
 const MODELS_PATH = path.resolve(process.env.MODELS_PATH || "/models");
+const OUTPUT_PATH = path.resolve(process.env.OUTPUT_PATH || path.resolve(MODELS_PATH, "../output"));
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 function ts() {
@@ -40,6 +41,7 @@ log(
 );
 log(`  ComfyUI running at            : ${COMFY_HOST}:${COMFY_PORT}`);
 log(`  Models path                   : ${MODELS_PATH}`);
+log(`  Output path                   : ${OUTPUT_PATH}`);
 log(
 	`  Token                         : ${TOKEN ? TOKEN.slice(0, 8) + "…" + TOKEN.slice(-4) + ` (${TOKEN.length} chars)` : "(not set)"}`,
 );
@@ -269,8 +271,11 @@ function handleWsOpen(msg) {
 // ── Filesystem helpers ────────────────────────────────────────────────────────
 function resolveSafe(relPath) {
 	const resolved = path.resolve(MODELS_PATH, relPath || "");
-	const base = MODELS_PATH.endsWith(path.sep) ? MODELS_PATH : MODELS_PATH + path.sep;
-	if (resolved !== MODELS_PATH && !resolved.startsWith(base)) {
+	const modelsBase = MODELS_PATH.endsWith(path.sep) ? MODELS_PATH : MODELS_PATH + path.sep;
+	const outputBase = OUTPUT_PATH.endsWith(path.sep) ? OUTPUT_PATH : OUTPUT_PATH + path.sep;
+	const inModels = resolved === MODELS_PATH || resolved.startsWith(modelsBase);
+	const inOutput = resolved === OUTPUT_PATH || resolved.startsWith(outputBase);
+	if (!inModels && !inOutput) {
 		throw new Error("Path traversal not allowed");
 	}
 	return resolved;

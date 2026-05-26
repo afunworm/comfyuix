@@ -74,7 +74,7 @@ export class SyncService {
 		for (let i = 0; i < toDelete.length; i += BATCH) {
 			const batch = toDelete.slice(i, i + BATCH);
 			const results = await Promise.allSettled(
-				batch.map((file) => this.tunnelService.fsDelete(serverId, file.path)),
+				batch.map((file) => this.tunnelService.fsDelete(serverId, `../output/${file.path}`)),
 			);
 			deleted += results.filter((r) => r.status === 'fulfilled').length;
 			yield { phase: 'deleting', total, deleted };
@@ -127,13 +127,11 @@ export class SyncService {
 	}
 
 	private parseOutputEntry(entry: any): { filename: string; subfolder: string } {
+		// entry.path is relative to the output dir (e.g. "file.png" or "subdir/file.png")
 		const normalized = (entry.path as string).replace(/\\/g, '/');
-		// strip everything up to and including the "output/" segment
-		const outputIdx = normalized.indexOf('output/');
-		const afterOutput = outputIdx >= 0 ? normalized.slice(outputIdx + 'output/'.length) : normalized;
-		const lastSlash = afterOutput.lastIndexOf('/');
-		const filename = lastSlash >= 0 ? afterOutput.slice(lastSlash + 1) : afterOutput;
-		const subfolder = lastSlash >= 0 ? afterOutput.slice(0, lastSlash) : '';
+		const lastSlash = normalized.lastIndexOf('/');
+		const filename = lastSlash >= 0 ? normalized.slice(lastSlash + 1) : normalized;
+		const subfolder = lastSlash >= 0 ? normalized.slice(0, lastSlash) : '';
 		return { filename, subfolder };
 	}
 }
