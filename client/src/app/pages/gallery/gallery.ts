@@ -211,6 +211,7 @@ export class GalleryPage implements OnInit {
 		this.lightboxAssets.set(assets);
 		this.lightboxIndex.set(index >= 0 ? index : 0);
 		this.lightboxActive.set(true);
+		this.hideImagePreview();
 	}
 
 	closeLightbox(): void {
