@@ -26,7 +26,8 @@ export class SyncController {
 				res.raw.write(`data: ${JSON.stringify(event)}\n\n`);
 			}
 		} catch (err: any) {
-			res.raw.write(`data: ${JSON.stringify({ phase: 'error', message: err.message })}\n\n`);
+			console.error('[SyncClean] error:', err);
+			res.raw.write(`data: ${JSON.stringify({ phase: 'error', message: err.message ?? String(err) })}\n\n`);
 		}
 
 		res.raw.end();

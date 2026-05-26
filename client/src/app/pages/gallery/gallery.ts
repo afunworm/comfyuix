@@ -503,11 +503,13 @@ export class GalleryPage implements OnInit {
 							: 'No untracked files found on server.',
 					);
 				} else if (event.phase === 'error') {
+					console.error('[SyncClean] server error:', event.message);
 					this.syncPhase.set(null);
-					this.syncMessage.set('Sync failed. Is the server connected?');
+					this.syncMessage.set(`Sync failed: ${event.message}`);
 				}
 			}
-		} catch {
+		} catch (err) {
+			console.error('[SyncClean] client error:', err);
 			this.syncPhase.set(null);
 			this.syncMessage.set('Sync failed. Is the server connected?');
 		} finally {
