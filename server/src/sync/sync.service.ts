@@ -98,7 +98,7 @@ export class SyncService {
 	}
 
 	private async listBookOutputFiles(serverId: string, bookId: string): Promise<any[]> {
-		const entries: any[] = await this.tunnelService.fsList(serverId, 'output', true, 300_000);
+		const entries: any[] = await this.tunnelService.fsList(serverId, '../output', true, 300_000);
 		return entries.filter(
 			(e) => e.type === 'file' && (e.name as string).startsWith(bookId + '-'),
 		);
@@ -127,12 +127,13 @@ export class SyncService {
 	}
 
 	private parseOutputEntry(entry: any): { filename: string; subfolder: string } {
-		// path is like "output/filename.png" or "output/subdir/filename.png"
 		const normalized = (entry.path as string).replace(/\\/g, '/');
-		const withoutPrefix = normalized.replace(/^output\//, '');
-		const lastSlash = withoutPrefix.lastIndexOf('/');
-		const filename = lastSlash >= 0 ? withoutPrefix.slice(lastSlash + 1) : withoutPrefix;
-		const subfolder = lastSlash >= 0 ? withoutPrefix.slice(0, lastSlash) : '';
+		// strip everything up to and including the "output/" segment
+		const outputIdx = normalized.indexOf('output/');
+		const afterOutput = outputIdx >= 0 ? normalized.slice(outputIdx + 'output/'.length) : normalized;
+		const lastSlash = afterOutput.lastIndexOf('/');
+		const filename = lastSlash >= 0 ? afterOutput.slice(lastSlash + 1) : afterOutput;
+		const subfolder = lastSlash >= 0 ? afterOutput.slice(0, lastSlash) : '';
 		return { filename, subfolder };
 	}
 }
