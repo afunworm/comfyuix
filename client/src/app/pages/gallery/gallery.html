@@ -93,12 +93,33 @@
 								{{ book.name }}
 							</option>
 						}
+						<option value="__orphaned__" [selected]="isOrphaned()">Orphaned</option>
 					</select>
 				</div>
 			}
 
+			<!-- Orphaned cleanup bar -->
+			@if (isOrphaned()) {
+				<div class="gallery__sync">
+					<button
+						type="button"
+						class="btn gallery__delete-btn"
+						[disabled]="syncing() || (visibleInputAssets().length + visibleOutputAssets().length) === 0"
+						(click)="deleteOrphanedAssets()"
+						title="Remove all orphaned gallery records whose book has been deleted"
+					>
+						Delete All Orphaned
+					</button>
+					@if (syncing()) {
+						<div class="gallery__progress gallery__progress--indeterminate"></div>
+					} @else if (syncMessage()) {
+						<span class="gallery__sync-status">{{ syncMessage() }}</span>
+					}
+				</div>
+			}
+
 			<!-- Sync -->
-			@if (galleryTab() === 'output' && selectedBookId()) {
+			@if (galleryTab() === 'output' && selectedBookId() && !isOrphaned()) {
 				<div class="gallery__sync">
 					<button
 						type="button"
@@ -156,7 +177,7 @@
 			}
 
 			<!-- Folder nav -->
-			<div class="gallery__folder-nav">
+			<div class="gallery__folder-nav" [style.display]="isOrphaned() ? 'none' : null">
 				@if (currentFolderId() !== null) {
 					<button
 						type="button"

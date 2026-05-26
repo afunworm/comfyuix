@@ -216,14 +216,30 @@ export class Books implements OnInit {
 	}
 
 	async deleteBook(book: Book) {
-		const confirm = await this.dialog.confirm(
-			`Delete "${book.name}"? This cannot be undone.`,
-		);
-		if (!confirm) return;
+		const confirmed = await this.dialog.confirm(`Delete "${book.name}"? This cannot be undone.`);
+		if (!confirmed) return;
 
-		this.db.deleteBook(book.id).subscribe({
+		let assetCount = 0;
+		try {
+			const result = await lastValueFrom(this.db.getBookAssetCount(book.id));
+			assetCount = result.total;
+		} catch {}
+
+		let withAssets = false;
+		if (assetCount > 0) {
+			withAssets = await this.dialog.confirm(
+				`"${book.name}" has ${assetCount} photo${assetCount !== 1 ? 's' : ''} in your gallery. Delete them too? Choose "Cancel" to keep them (they will appear under "Orphaned" in the Gallery).`,
+			);
+		}
+
+		this.db.deleteBook(book.id, withAssets).subscribe({
 			next: () => {
-				this.dialog.alert("Book deleted.");
+				const msg = withAssets
+					? 'Book and photos deleted.'
+					: assetCount > 0
+						? `Book deleted. ${assetCount} photo${assetCount !== 1 ? 's' : ''} moved to Orphaned in Gallery.`
+						: 'Book deleted.';
+				this.dialog.alert(msg);
 				this.loadBooks();
 			},
 			error: () => this.dialog.alert("An error occurred while deleting the book."),

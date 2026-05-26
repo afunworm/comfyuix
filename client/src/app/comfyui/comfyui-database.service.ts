@@ -375,9 +375,23 @@ export class ComfyUIDatabaseService {
 		});
 	}
 
-	deleteBook(bookId: string): Observable<void> {
-		const url = `${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}`;
+	getBookAssetCount(bookId: string): Observable<{ total: number }> {
+		return this.http.get<{ total: number }>(
+			`${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}/asset-count`,
+		);
+	}
+
+	deleteBook(bookId: string, withAssets = false): Observable<void> {
+		const url = `${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}${withAssets ? '?withAssets=true' : ''}`;
 		return this.http.delete<void>(url);
+	}
+
+	getOrphanedAssetCount(): Observable<{ total: number }> {
+		return this.http.get<{ total: number }>(`${this.httpEndpoint()}/assets/orphaned`);
+	}
+
+	deleteOrphanedAssets(): Observable<{ deleted: number }> {
+		return this.http.delete<{ deleted: number }>(`${this.httpEndpoint()}/assets/orphaned`);
 	}
 
 	cloneBook(bookId: string): Observable<any> {

@@ -165,11 +165,25 @@ export class BooksService {
 		return this.findOne(id, userId);
 	}
 
-	remove(id: string, userId: number) {
+	getAssetCount(id: string, userId: number): { total: number } {
+		const book = this.db
+			.prepare('SELECT id FROM book WHERE id = ? AND user_id = ?')
+			.get(id, userId);
+		if (!book) throw new NotFoundException('Book not found or you are not the owner');
+		const row = this.db
+			.prepare('SELECT COUNT(*) as total FROM asset WHERE book_id = ?')
+			.get(id) as any;
+		return { total: row.total };
+	}
+
+	remove(id: string, userId: number, deleteAssets = false) {
 		const book = this.db
 			.prepare(`SELECT id FROM book WHERE id = ? AND user_id = ?`)
 			.get(id, userId);
 		if (!book) throw new NotFoundException("Book not found or you are not the owner");
+		if (deleteAssets) {
+			this.db.prepare('DELETE FROM asset WHERE book_id = ?').run(id);
+		}
 		this.db.prepare("DELETE FROM book WHERE id = ?").run(id);
 		return { deleted: true };
 	}

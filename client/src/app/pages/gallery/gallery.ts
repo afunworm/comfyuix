@@ -90,9 +90,15 @@ export class GalleryPage implements OnInit {
 	private readonly uploadedAssets = this.assetService.input$;
 	private readonly generatedAssets = this.assetService.output$;
 
+	readonly isOrphaned = computed(() => this.selectedBookId() === '__orphaned__');
+
 	readonly visibleInputAssets = computed(() => {
 		const folderId = this.currentInputFolderId();
 		const bookId = this.selectedBookId();
+		if (bookId === '__orphaned__') {
+			const validIds = new Set(this.books().map((b) => b.id));
+			return this.uploadedAssets().filter((a) => !validIds.has(a.bookId ?? ''));
+		}
 		return this.uploadedAssets().filter((a) => {
 			if (bookId !== null && a.bookId !== bookId) return false;
 			return folderId === null ? a.folderId == null : a.folderId === folderId;
@@ -102,6 +108,10 @@ export class GalleryPage implements OnInit {
 	readonly visibleOutputAssets = computed(() => {
 		const folderId = this.currentOutputFolderId();
 		const bookId = this.selectedBookId();
+		if (bookId === '__orphaned__') {
+			const validIds = new Set(this.books().map((b) => b.id));
+			return this.generatedAssets().filter((a) => !validIds.has(a.bookId ?? ''));
+		}
 		return this.generatedAssets().filter((a) => {
 			if (bookId !== null && a.bookId !== bookId) return false;
 			return folderId === null ? a.folderId == null : a.folderId === folderId;
@@ -614,6 +624,30 @@ export class GalleryPage implements OnInit {
 			console.error('[SyncClean] client error:', err);
 			this.syncPhase.set(null);
 			this.syncMessage.set('Sync failed. Is the server connected?');
+		} finally {
+			this.syncing.set(false);
+		}
+	}
+
+	async deleteOrphanedAssets(): Promise<void> {
+		const total = this.visibleInputAssets().length + this.visibleOutputAssets().length;
+		if (!total) return;
+		const confirmed = await this.dialog.confirm(
+			`Delete ${total} orphaned photo${total !== 1 ? 's' : ''} from your gallery? This removes the database records only — files on the server are not affected.`,
+		);
+		if (!confirmed) return;
+		this.syncing.set(true);
+		this.syncMessage.set(null);
+		try {
+			const result = await lastValueFrom(this.db.deleteOrphanedAssets());
+			await this.assetService.initialize();
+			this.syncMessage.set(
+				result.deleted > 0
+					? `Deleted ${result.deleted} orphaned record${result.deleted !== 1 ? 's' : ''}.`
+					: 'No orphaned records found.',
+			);
+		} catch {
+			this.syncMessage.set('Failed to delete orphaned records.');
 		} finally {
 			this.syncing.set(false);
 		}

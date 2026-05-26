@@ -53,9 +53,15 @@ export class BooksController {
 	}
 
 	@UseGuards(JwtAuthGuard)
+	@Get(":id/asset-count")
+	getAssetCount(@Param("id") id: string, @Request() req) {
+		return this.booksService.getAssetCount(id, req.user.id);
+	}
+
+	@UseGuards(JwtAuthGuard)
 	@Delete(":id")
-	remove(@Param("id") id: string, @Request() req) {
-		return this.booksService.remove(id, req.user.id);
+	remove(@Param("id") id: string, @Request() req, @Query("withAssets") withAssets?: string) {
+		return this.booksService.remove(id, req.user.id, withAssets === "true");
 	}
 
 	@UseGuards(JwtAuthGuard)

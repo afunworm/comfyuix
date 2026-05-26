@@ -26,6 +26,18 @@ export class AssetsController {
 		return this.assetsService.findByUser(req.user.id, type);
 	}
 
+	/** GET /assets/orphaned — count of assets whose book no longer exists */
+	@Get('orphaned')
+	getOrphanedCount(@Request() req) {
+		return this.assetsService.getOrphanedCount(req.user.id);
+	}
+
+	/** DELETE /assets/orphaned — delete all orphaned assets for this user */
+	@Delete('orphaned')
+	deleteOrphaned(@Request() req) {
+		return this.assetsService.deleteOrphaned(req.user.id);
+	}
+
 	/** GET /assets/:id — returns full record including layer_data */
 	@Get(':id')
 	findById(@Param('id', ParseIntPipe) id: number, @Request() req) {

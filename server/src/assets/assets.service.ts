@@ -91,6 +91,24 @@ export class AssetsService {
 		return { deleted: true };
 	}
 
+	getOrphanedCount(userId: number): { total: number } {
+		const row = this.db
+			.prepare(
+				`SELECT COUNT(*) as total FROM asset WHERE user_id = ? AND book_id NOT IN (SELECT id FROM book)`,
+			)
+			.get(userId) as any;
+		return { total: row.total };
+	}
+
+	deleteOrphaned(userId: number): { deleted: number } {
+		const result = this.db
+			.prepare(
+				`DELETE FROM asset WHERE user_id = ? AND book_id NOT IN (SELECT id FROM book)`,
+			)
+			.run(userId);
+		return { deleted: result.changes };
+	}
+
 	moveToFolder(id: number, userId: number, folderId: number | null) {
 		const asset = this.db
 			.prepare("SELECT id FROM asset WHERE id = ? AND user_id = ?")
