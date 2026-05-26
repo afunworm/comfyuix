@@ -5,6 +5,12 @@ import type { FlowConfig } from "../types/flow.type";
 import type { ObjectInfo } from "./workflow-converter";
 import { MultirunPreset } from "../pages/book/multirun.types";
 
+export type SyncCleanEvent =
+	| { phase: 'listing' }
+	| { phase: 'deleting'; total: number; deleted: number }
+	| { phase: 'done'; deleted: number; skipped: number }
+	| { phase: 'error'; message: string };
+
 export interface AdminUser {
 	id: number;
 	username: string;
@@ -820,11 +826,37 @@ export class ComfyUIDatabaseService {
 		);
 	}
 
-	syncClean(bookId: string): Observable<{ deleted: number; skipped: number }> {
-		return this.http.post<{ deleted: number; skipped: number }>(
+	async *syncCleanStream(bookId: string): AsyncGenerator<SyncCleanEvent> {
+		const token = localStorage.getItem('access_token');
+		const response = await fetch(
 			`${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}/sync/clean`,
-			{},
+			{
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: 'text/event-stream',
+				},
+			},
 		);
+
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+		const reader = response.body!.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const chunks = buffer.split('\n\n');
+			buffer = chunks.pop()!;
+			for (const chunk of chunks) {
+				const line = chunk.trim();
+				if (!line.startsWith('data: ')) continue;
+				yield JSON.parse(line.slice(6)) as SyncCleanEvent;
+			}
+		}
 	}
 
 	getQueueStatus(

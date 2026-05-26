@@ -119,7 +119,25 @@
 						Clean Server Files
 					</button>
 					@if (syncing()) {
-						<span class="gallery__sync-status">Syncing…</span>
+						<span class="gallery__sync-status">
+							@if (syncPhase() === 'listing') {
+								Scanning server files…
+							} @else if (syncPhase() === 'deleting') {
+								Deleting {{ syncDeleted() }} / {{ syncTotal() }}…
+							} @else {
+								Syncing…
+							}
+						</span>
+						@if (syncPhase() === 'deleting' && syncTotal() > 0) {
+							<div class="gallery__progress">
+								<div
+									class="gallery__progress-bar"
+									[style.width.%]="(syncDeleted() / syncTotal()) * 100"
+								></div>
+							</div>
+						} @else if (syncing()) {
+							<div class="gallery__progress gallery__progress--indeterminate"></div>
+						}
 					} @else if (syncMessage()) {
 						<span class="gallery__sync-status">{{ syncMessage() }}</span>
 					}

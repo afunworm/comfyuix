@@ -18,6 +18,12 @@ export interface SyncCleanResult {
 	skipped: number;
 }
 
+export type SyncCleanEvent =
+	| { phase: 'listing' }
+	| { phase: 'deleting'; total: number; deleted: number }
+	| { phase: 'done'; deleted: number; skipped: number }
+	| { phase: 'error'; message: string };
+
 @Injectable()
 export class SyncService {
 	private readonly db;
@@ -49,25 +55,32 @@ export class SyncService {
 		return { created, skipped: serverFiles.length - created };
 	}
 
-	async syncClean(bookId: string, userId: number): Promise<SyncCleanResult> {
+	async *syncCleanStream(bookId: string, userId: number): AsyncGenerator<SyncCleanEvent> {
 		const serverId = this.resolveBook(bookId, userId);
+
+		yield { phase: 'listing' };
+
 		const serverFiles = await this.listBookOutputFiles(serverId, bookId);
 		const existingFilenames = this.getExistingAssetFilenames(bookId);
+		const toDelete = serverFiles.filter(
+			(file) => !existingFilenames.has(this.parseOutputEntry(file).filename),
+		);
+
+		const total = toDelete.length;
+		yield { phase: 'deleting', total, deleted: 0 };
 
 		let deleted = 0;
-		for (const file of serverFiles) {
-			const { filename } = this.parseOutputEntry(file);
-			if (existingFilenames.has(filename)) continue;
-
-			try {
-				await this.tunnelService.fsDelete(serverId, file.path);
-				deleted++;
-			} catch {
-				// skip files that fail to delete (permissions, race condition, etc.)
-			}
+		const BATCH = 20;
+		for (let i = 0; i < toDelete.length; i += BATCH) {
+			const batch = toDelete.slice(i, i + BATCH);
+			const results = await Promise.allSettled(
+				batch.map((file) => this.tunnelService.fsDelete(serverId, file.path)),
+			);
+			deleted += results.filter((r) => r.status === 'fulfilled').length;
+			yield { phase: 'deleting', total, deleted };
 		}
 
-		return { deleted, skipped: serverFiles.length - deleted };
+		yield { phase: 'done', deleted, skipped: serverFiles.length - deleted };
 	}
 
 	private resolveBook(bookId: string, userId: number): string {
@@ -85,7 +98,7 @@ export class SyncService {
 	}
 
 	private async listBookOutputFiles(serverId: string, bookId: string): Promise<any[]> {
-		const entries: any[] = await this.tunnelService.fsList(serverId, 'output', true);
+		const entries: any[] = await this.tunnelService.fsList(serverId, 'output', true, 300_000);
 		return entries.filter(
 			(e) => e.type === 'file' && (e.name as string).startsWith(bookId + '-'),
 		);

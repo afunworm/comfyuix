@@ -126,6 +126,35 @@
 		margin-left: 4px;
 	}
 
+	&__progress {
+		width: 120px;
+		height: 4px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 2px;
+		overflow: hidden;
+		flex-shrink: 0;
+
+		&-bar {
+			height: 100%;
+			background: var(--accent);
+			border-radius: 2px;
+			transition: width 0.2s ease;
+		}
+
+		&--indeterminate {
+			position: relative;
+
+			&::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: var(--accent);
+				border-radius: 2px;
+				animation: progress-slide 1.4s ease-in-out infinite;
+			}
+		}
+	}
+
 	&__folder-nav {
 		display: flex;
 		align-items: center;
@@ -209,6 +238,12 @@
 	border: 1px solid rgba(122, 162, 255, 0.65);
 	background: rgba(122, 162, 255, 0.1);
 	border-radius: 3px;
+}
+
+@keyframes progress-slide {
+	0% { transform: translateX(-100%) scaleX(0.3); }
+	50% { transform: translateX(0%) scaleX(0.6); }
+	100% { transform: translateX(100%) scaleX(0.3); }
 }
 
 // gallery-preview, gallery-item__checkbox, gallery-item--bulk-selected,

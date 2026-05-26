@@ -46,6 +46,9 @@ export class GalleryPage implements OnInit {
 	books = signal<{ id: string; name: string }[]>([]);
 	syncing = signal<boolean>(false);
 	syncMessage = signal<string | null>(null);
+	syncPhase = signal<'listing' | 'deleting' | null>(null);
+	syncTotal = signal<number>(0);
+	syncDeleted = signal<number>(0);
 	rubberBand = signal<{ left: number; top: number; width: number; height: number } | null>(null);
 	private lastSelectedIndex = -1;
 
@@ -481,14 +484,31 @@ export class GalleryPage implements OnInit {
 		if (!confirmed) return;
 		this.syncing.set(true);
 		this.syncMessage.set(null);
+		this.syncPhase.set('listing');
+		this.syncTotal.set(0);
+		this.syncDeleted.set(0);
 		try {
-			const result = await lastValueFrom(this.db.syncClean(bookId));
-			this.syncMessage.set(
-				result.deleted > 0
-					? `Deleted ${result.deleted} untracked file${result.deleted !== 1 ? 's' : ''} from server.`
-					: 'No untracked files found on server.',
-			);
+			for await (const event of this.db.syncCleanStream(bookId)) {
+				if (event.phase === 'listing') {
+					this.syncPhase.set('listing');
+				} else if (event.phase === 'deleting') {
+					this.syncPhase.set('deleting');
+					this.syncTotal.set(event.total);
+					this.syncDeleted.set(event.deleted);
+				} else if (event.phase === 'done') {
+					this.syncPhase.set(null);
+					this.syncMessage.set(
+						event.deleted > 0
+							? `Deleted ${event.deleted} untracked file${event.deleted !== 1 ? 's' : ''} from server.`
+							: 'No untracked files found on server.',
+					);
+				} else if (event.phase === 'error') {
+					this.syncPhase.set(null);
+					this.syncMessage.set('Sync failed. Is the server connected?');
+				}
+			}
 		} catch {
+			this.syncPhase.set(null);
 			this.syncMessage.set('Sync failed. Is the server connected?');
 		} finally {
 			this.syncing.set(false);

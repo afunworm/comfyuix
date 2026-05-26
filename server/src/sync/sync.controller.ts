@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Param, Req, Res, UseGuards } from '@nestjs/common';
 import { SyncService } from './sync.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -14,7 +14,21 @@ export class SyncController {
 
 	@UseGuards(JwtAuthGuard)
 	@Post('clean')
-	syncClean(@Param('bookId') bookId: string, @Req() req: any) {
-		return this.syncService.syncClean(bookId, req.user.id);
+	async syncClean(@Param('bookId') bookId: string, @Req() req: any, @Res() res: any) {
+		res.raw.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache',
+			Connection: 'keep-alive',
+		});
+
+		try {
+			for await (const event of this.syncService.syncCleanStream(bookId, req.user.id)) {
+				res.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+			}
+		} catch (err: any) {
+			res.raw.write(`data: ${JSON.stringify({ phase: 'error', message: err.message })}\n\n`);
+		}
+
+		res.raw.end();
 	}
 }

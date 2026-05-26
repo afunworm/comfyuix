@@ -302,9 +302,9 @@ class TunnelConnection {
 		});
 	}
 
-	fsList(path: string, recursive = false): Promise<any[]> {
+	fsList(path: string, recursive = false, timeoutMs = 30_000): Promise<any[]> {
 		const requestId = randomUUID();
-		return this.fsRequest({ type: "fs_list", requestId, path, recursive }, requestId);
+		return this.fsRequest({ type: "fs_list", requestId, path, recursive }, requestId, timeoutMs);
 	}
 
 	fsDelete(path: string): Promise<void> {
@@ -499,10 +499,10 @@ export class TunnelService {
 		return conn.fetchHttp(method, path, headers, body, timeoutMs);
 	}
 
-	fsList(serverId: string, path: string, recursive = false): Promise<any[]> {
+	fsList(serverId: string, path: string, recursive = false, timeoutMs = 30_000): Promise<any[]> {
 		const conn = this.tunnels.get(serverId);
 		if (!conn) throw new Error("No tunnel connected for this server");
-		return conn.fsList(path, recursive);
+		return conn.fsList(path, recursive, timeoutMs);
 	}
 
 	fsDelete(serverId: string, path: string): Promise<void> {
