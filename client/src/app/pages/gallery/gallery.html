@@ -282,8 +282,9 @@
 											gallerySelectMode() && isAssetSelected(asset.id)
 										"
 										(click)="
-											gallerySelectMode() &&
-												toggleAssetSelection(asset.id, $event, paginatedInputAssets())
+											gallerySelectMode()
+												? toggleAssetSelection(asset.id, $event, paginatedInputAssets())
+												: openLightbox(asset)
 										"
 										(contextmenu)="openAssetContextMenu($event, asset)"
 									>
@@ -441,8 +442,9 @@
 											gallerySelectMode() && isAssetSelected(asset.id)
 										"
 										(click)="
-											gallerySelectMode() &&
-												toggleAssetSelection(asset.id, $event, paginatedOutputAssets())
+											gallerySelectMode()
+												? toggleAssetSelection(asset.id, $event, paginatedOutputAssets())
+												: openLightbox(asset)
 										"
 										(contextmenu)="openAssetContextMenu($event, asset)"
 									>
@@ -615,6 +617,15 @@
 		[style.height.px]="rb.height"
 	></div>
 }
+
+<!-- Lightbox -->
+<app-gallery-mode
+	[active]="lightboxActive()"
+	[assets]="lightboxAssets()"
+	[activeIndex]="lightboxIndex()"
+	(closed)="closeLightbox()"
+	(navigateTo)="lightboxIndex.set($event)"
+/>
 
 <!-- Image hover preview -->
 @if (imagePreview(); as p) {

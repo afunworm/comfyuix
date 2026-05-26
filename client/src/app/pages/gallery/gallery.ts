@@ -2,6 +2,7 @@ import {
 	Component,
 	computed,
 	effect,
+	HostListener,
 	inject,
 	Input,
 	OnInit,
@@ -18,12 +19,13 @@ import { Dialog } from "../../dialog";
 import { ComfyUIDatabaseService } from "../../comfyui/comfyui-database.service";
 import { HeaderComponent } from "../../header/header.component";
 import { FooterComponent } from "../../footer/footer.component";
+import { GalleryModeComponent } from "../book/gallery-mode.component";
 import { lastValueFrom } from "rxjs";
 
 @Component({
 	selector: "app-gallery",
 	standalone: true,
-	imports: [CommonModule, HeaderComponent, FooterComponent],
+	imports: [CommonModule, HeaderComponent, FooterComponent, GalleryModeComponent],
 	templateUrl: "./gallery.html",
 	styleUrl: "./gallery.scss",
 })
@@ -54,6 +56,11 @@ export class GalleryPage implements OnInit {
 	syncPurgeTotal = signal<number>(0);
 	syncPurged = signal<number>(0);
 	rubberBand = signal<{ left: number; top: number; width: number; height: number } | null>(null);
+
+	// ── Lightbox ──────────────────────────────────────────────────────────────
+	lightboxActive = signal<boolean>(false);
+	lightboxAssets = signal<StoredImageAsset[]>([]);
+	lightboxIndex = signal<number>(0);
 
 	// ── Pagination ────────────────────────────────────────────────────────────
 	readonly PAGE_SIZE = 40;
@@ -192,6 +199,43 @@ export class GalleryPage implements OnInit {
 
 	hideImagePreview(): void {
 		this.imagePreview.set(null);
+	}
+
+	// ── Lightbox ──────────────────────────────────────────────────────────────
+
+	openLightbox(asset: StoredImageAsset): void {
+		const assets = this.galleryTab() === 'input'
+			? this.visibleInputAssets()
+			: this.visibleOutputAssets();
+		const index = assets.findIndex((a) => a.id === asset.id);
+		this.lightboxAssets.set(assets);
+		this.lightboxIndex.set(index >= 0 ? index : 0);
+		this.lightboxActive.set(true);
+	}
+
+	closeLightbox(): void {
+		this.lightboxActive.set(false);
+	}
+
+	@HostListener('document:keydown.escape')
+	onEscape(): void {
+		if (this.lightboxActive()) this.closeLightbox();
+	}
+
+	@HostListener('document:keydown.arrowleft', ['$event'])
+	onArrowLeft(e: Event): void {
+		if (!this.lightboxActive()) return;
+		e.preventDefault();
+		const len = this.lightboxAssets().length;
+		if (len > 1) this.lightboxIndex.update((i) => (i - 1 + len) % len);
+	}
+
+	@HostListener('document:keydown.arrowright', ['$event'])
+	onArrowRight(e: Event): void {
+		if (!this.lightboxActive()) return;
+		e.preventDefault();
+		const len = this.lightboxAssets().length;
+		if (len > 1) this.lightboxIndex.update((i) => (i + 1) % len);
 	}
 
 	// ── Rubber-band select ─────────────────────────────────────────────────────
