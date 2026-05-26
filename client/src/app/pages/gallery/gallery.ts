@@ -49,6 +49,9 @@ export class GalleryPage implements OnInit {
 	syncPhase = signal<'listing' | 'deleting' | null>(null);
 	syncTotal = signal<number>(0);
 	syncDeleted = signal<number>(0);
+	syncPurgePhase = signal<'listing' | 'purging' | null>(null);
+	syncPurgeTotal = signal<number>(0);
+	syncPurged = signal<number>(0);
 	rubberBand = signal<{ left: number; top: number; width: number; height: number } | null>(null);
 	private lastSelectedIndex = -1;
 
@@ -487,6 +490,7 @@ export class GalleryPage implements OnInit {
 		this.syncPhase.set('listing');
 		this.syncTotal.set(0);
 		this.syncDeleted.set(0);
+		this.syncPurgePhase.set(null);
 		try {
 			for await (const event of this.db.syncCleanStream(bookId)) {
 				if (event.phase === 'listing') {
@@ -512,6 +516,50 @@ export class GalleryPage implements OnInit {
 			console.error('[SyncClean] client error:', err);
 			this.syncPhase.set(null);
 			this.syncMessage.set('Sync failed. Is the server connected?');
+		} finally {
+			this.syncing.set(false);
+		}
+	}
+
+	async syncPurge(): Promise<void> {
+		const bookId = this.selectedBookId();
+		if (!bookId || this.syncing()) return;
+		const confirmed = await this.dialog.confirm(
+			'Remove database records for output images that no longer exist on the server? This will hide those images from your gallery.',
+		);
+		if (!confirmed) return;
+		this.syncing.set(true);
+		this.syncMessage.set(null);
+		this.syncPhase.set(null);
+		this.syncPurgePhase.set('listing');
+		this.syncPurgeTotal.set(0);
+		this.syncPurged.set(0);
+		try {
+			for await (const event of this.db.syncPurgeStream(bookId)) {
+				if (event.phase === 'listing') {
+					this.syncPurgePhase.set('listing');
+				} else if (event.phase === 'purging') {
+					this.syncPurgePhase.set('purging');
+					this.syncPurgeTotal.set(event.total);
+					this.syncPurged.set(event.purged);
+				} else if (event.phase === 'done') {
+					this.syncPurgePhase.set(null);
+					this.syncMessage.set(
+						event.purged > 0
+							? `Removed ${event.purged} stale record${event.purged !== 1 ? 's' : ''} from database.`
+							: 'No stale records found.',
+					);
+					if (event.purged > 0) await this.assetService.initialize();
+				} else if (event.phase === 'error') {
+					console.error('[SyncPurge] server error:', event.message);
+					this.syncPurgePhase.set(null);
+					this.syncMessage.set(`Purge failed: ${event.message}`);
+				}
+			}
+		} catch (err) {
+			console.error('[SyncPurge] client error:', err);
+			this.syncPurgePhase.set(null);
+			this.syncMessage.set('Purge failed. Is the server connected?');
 		} finally {
 			this.syncing.set(false);
 		}

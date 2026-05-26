@@ -11,6 +11,12 @@ export type SyncCleanEvent =
 	| { phase: 'done'; deleted: number; skipped: number }
 	| { phase: 'error'; message: string };
 
+export type SyncPurgeEvent =
+	| { phase: 'listing' }
+	| { phase: 'purging'; total: number; purged: number }
+	| { phase: 'done'; purged: number; skipped: number }
+	| { phase: 'error'; message: string };
+
 export interface AdminUser {
 	id: number;
 	username: string;
@@ -855,6 +861,39 @@ export class ComfyUIDatabaseService {
 				const line = chunk.trim();
 				if (!line.startsWith('data: ')) continue;
 				yield JSON.parse(line.slice(6)) as SyncCleanEvent;
+			}
+		}
+	}
+
+	async *syncPurgeStream(bookId: string): AsyncGenerator<SyncPurgeEvent> {
+		const token = localStorage.getItem('access_token');
+		const response = await fetch(
+			`${this.httpEndpoint()}/books/${encodeURIComponent(bookId)}/sync/purge`,
+			{
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: 'text/event-stream',
+				},
+			},
+		);
+
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+		const reader = response.body!.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const chunks = buffer.split('\n\n');
+			buffer = chunks.pop()!;
+			for (const chunk of chunks) {
+				const line = chunk.trim();
+				if (!line.startsWith('data: ')) continue;
+				yield JSON.parse(line.slice(6)) as SyncPurgeEvent;
 			}
 		}
 	}

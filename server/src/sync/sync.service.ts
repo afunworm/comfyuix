@@ -24,6 +24,12 @@ export type SyncCleanEvent =
 	| { phase: 'done'; deleted: number; skipped: number }
 	| { phase: 'error'; message: string };
 
+export type SyncPurgeEvent =
+	| { phase: 'listing' }
+	| { phase: 'purging'; total: number; purged: number }
+	| { phase: 'done'; purged: number; skipped: number }
+	| { phase: 'error'; message: string };
+
 @Injectable()
 export class SyncService {
 	private readonly db;
@@ -81,6 +87,35 @@ export class SyncService {
 		}
 
 		yield { phase: 'done', deleted, skipped: serverFiles.length - deleted };
+	}
+
+	async *syncPurgeStream(bookId: string, userId: number): AsyncGenerator<SyncPurgeEvent> {
+		const serverId = this.resolveBook(bookId, userId);
+
+		yield { phase: 'listing' };
+
+		const serverFiles = await this.listBookOutputFiles(serverId, bookId);
+		const serverFilenames = new Set(serverFiles.map((f) => this.parseOutputEntry(f).filename));
+
+		const assets = this.db
+			.prepare("SELECT id, url FROM asset WHERE book_id = ? AND type = 'output'")
+			.all(bookId) as any[];
+
+		const toDelete = assets.filter((asset) => {
+			const filename = this.filenameFromUrl(asset.url);
+			return !filename || !serverFilenames.has(filename);
+		});
+
+		const total = toDelete.length;
+		yield { phase: 'purging', total, purged: 0 };
+
+		const deleteStmt = this.db.prepare('DELETE FROM asset WHERE id = ?');
+		const runDelete = this.db.transaction((rows: any[]) => {
+			for (const row of rows) deleteStmt.run(row.id);
+		});
+		runDelete(toDelete);
+
+		yield { phase: 'done', purged: total, skipped: assets.length - total };
 	}
 
 	private resolveBook(bookId: string, userId: number): string {

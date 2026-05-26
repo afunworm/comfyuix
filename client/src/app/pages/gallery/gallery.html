@@ -118,12 +118,23 @@
 					>
 						Clean Server Files
 					</button>
+					<button
+						type="button"
+						class="btn"
+						[disabled]="syncing()"
+						(click)="syncPurge()"
+						title="Remove database records for output images that no longer exist on the server"
+					>
+						Clean DB Records
+					</button>
 					@if (syncing()) {
 						<span class="gallery__sync-status">
-							@if (syncPhase() === 'listing') {
+							@if (syncPhase() === 'listing' || syncPurgePhase() === 'listing') {
 								Scanning server files…
 							} @else if (syncPhase() === 'deleting') {
 								Deleting {{ syncDeleted() }} / {{ syncTotal() }}…
+							} @else if (syncPurgePhase() === 'purging') {
+								Checking records…
 							} @else {
 								Syncing…
 							}
