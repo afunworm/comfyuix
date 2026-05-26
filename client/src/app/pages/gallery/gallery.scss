@@ -231,6 +231,73 @@
 	// Styles in global styles.scss (.gallery-folder-wrap / .gallery-folder-item)
 }
 
+.gallery-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 10px 12px 14px;
+	flex-shrink: 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+
+	&__btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		color: rgba(255, 255, 255, 0.6);
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s;
+
+		&:hover:not(:disabled) {
+			background: rgba(255, 255, 255, 0.1);
+			color: rgba(255, 255, 255, 0.9);
+		}
+
+		&:disabled {
+			opacity: 0.25;
+			cursor: default;
+		}
+	}
+
+	&__label {
+		font-size: 0.76rem;
+		color: rgba(255, 255, 255, 0.45);
+		font-variant-numeric: tabular-nums;
+		min-width: 40px;
+		text-align: center;
+		cursor: default;
+		user-select: none;
+	}
+
+	&__input {
+		width: 3.5rem;
+		text-align: center;
+		font-size: 0.76rem;
+		font-variant-numeric: tabular-nums;
+		background: rgba(255, 255, 255, 0.07);
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		border-radius: 4px;
+		color: rgba(255, 255, 255, 0.85);
+		padding: 2px 4px;
+		outline: none;
+
+		&::-webkit-inner-spin-button,
+		&::-webkit-outer-spin-button {
+			-webkit-appearance: none;
+		}
+		-moz-appearance: textfield;
+
+		&:focus {
+			border-color: rgba(255, 255, 255, 0.35);
+		}
+	}
+}
+
 .gallery__rubber-band {
 	position: fixed;
 	pointer-events: none;

@@ -1,6 +1,7 @@
 import {
 	Component,
 	computed,
+	effect,
 	inject,
 	Input,
 	OnInit,
@@ -53,6 +54,12 @@ export class GalleryPage implements OnInit {
 	syncPurgeTotal = signal<number>(0);
 	syncPurged = signal<number>(0);
 	rubberBand = signal<{ left: number; top: number; width: number; height: number } | null>(null);
+
+	// ── Pagination ────────────────────────────────────────────────────────────
+	readonly PAGE_SIZE = 40;
+	inputPage = signal<number>(0);
+	outputPage = signal<number>(0);
+	pageEditActive = signal<boolean>(false);
 	private lastSelectedIndex = -1;
 
 	currentInputFolderId = signal<number | null>(null);
@@ -94,7 +101,35 @@ export class GalleryPage implements OnInit {
 		});
 	});
 
+	readonly inputTotalPages = computed(() =>
+		Math.max(1, Math.ceil(this.visibleInputAssets().length / this.PAGE_SIZE)),
+	);
+	readonly outputTotalPages = computed(() =>
+		Math.max(1, Math.ceil(this.visibleOutputAssets().length / this.PAGE_SIZE)),
+	);
+	readonly paginatedInputAssets = computed(() => {
+		const page = this.inputPage();
+		return this.visibleInputAssets().slice(page * this.PAGE_SIZE, (page + 1) * this.PAGE_SIZE);
+	});
+	readonly paginatedOutputAssets = computed(() => {
+		const page = this.outputPage();
+		return this.visibleOutputAssets().slice(page * this.PAGE_SIZE, (page + 1) * this.PAGE_SIZE);
+	});
+
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
+
+	constructor() {
+		effect(() => {
+			this.currentInputFolderId();
+			this.selectedBookId();
+			this.inputPage.set(0);
+		});
+		effect(() => {
+			this.currentOutputFolderId();
+			this.selectedBookId();
+			this.outputPage.set(0);
+		});
+	}
 
 	async ngOnInit(): Promise<void> {
 		this.assetService.initialize();
@@ -225,8 +260,26 @@ export class GalleryPage implements OnInit {
 
 	selectAll(): void {
 		const assets =
-			this.galleryTab() === 'input' ? this.visibleInputAssets() : this.visibleOutputAssets();
+			this.galleryTab() === 'input' ? this.paginatedInputAssets() : this.paginatedOutputAssets();
 		this.selectedAssetIds.set(new Set(assets.map((a) => a.id)));
+	}
+
+	activatePageEdit(): void {
+		this.pageEditActive.set(true);
+		setTimeout(() => {
+			const input = document.querySelector('.gallery-pagination__input') as HTMLInputElement;
+			if (input) { input.select(); input.focus(); }
+		}, 0);
+	}
+
+	submitPageEdit(value: string, tab: 'input' | 'output'): void {
+		const total = tab === 'input' ? this.inputTotalPages() : this.outputTotalPages();
+		const n = parseInt(value, 10);
+		if (!isNaN(n)) {
+			const page = tab === 'input' ? this.inputPage : this.outputPage;
+			page.set(Math.max(0, Math.min(n - 1, total - 1)));
+		}
+		this.pageEditActive.set(false);
 	}
 
 	toggleAssetSelection(
