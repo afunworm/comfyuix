@@ -1216,6 +1216,7 @@ export class Book implements AfterViewInit {
 			this.resultPhotoURL.set(fileURL);
 
 			this.assetService.pushLocalAsset('output', {
+				id: result.assetId != null ? String(result.assetId) : undefined,
 				filename: result.filename,
 				subfolder: result.subfolder,
 				type: 'input',
@@ -1303,6 +1304,7 @@ export class Book implements AfterViewInit {
 				this.resultPhotoURL.set(fileURL);
 
 				const added = this.assetService.pushLocalAsset('output', {
+					id: result.assetId != null ? String(result.assetId) : undefined,
 					filename: result.filename,
 					subfolder: result.subfolder,
 					type: 'input',

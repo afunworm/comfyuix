@@ -1060,4 +1060,5 @@ export interface RunResult {
 	type: string;
 	viewPath: string;
 	seed?: string;
+	assetId?: number;
 }

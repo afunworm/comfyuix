@@ -16,6 +16,7 @@ export interface RunResult {
 	type: string;
 	viewPath: string;
 	seed?: string;
+	assetId?: number;
 }
 
 export interface RunStatus {
@@ -68,7 +69,7 @@ export class RunService {
 		const result = await this.finishRun(bookId, serverId, promptId);
 
 		if (userId) {
-			await this.assetsService.create(userId, {
+			const asset = this.assetsService.create(userId, {
 				url: result.viewPath,
 				type: 'output',
 				bookId,
@@ -76,7 +77,8 @@ export class RunService {
 				promptPositive: meta?.promptPositive,
 				promptNegative: meta?.promptNegative,
 				seed: meta?.seed,
-			});
+			}) as any;
+			return { ...result, assetId: asset?.id as number | undefined };
 		}
 
 		return result;
